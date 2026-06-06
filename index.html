@@ -83,13 +83,24 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .card-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);margin-bottom:14px}
 
 table{width:100%;border-collapse:collapse}
-th,td{text-align:right;padding:10px 9px;font-size:13px;border-bottom:1px solid var(--border);white-space:nowrap}
+th,td{text-align:right;padding:13px 14px;font-size:13.5px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:middle}
 th:first-child,td:first-child{text-align:left}
-th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);font-weight:700}
+thead th{position:sticky;top:0;background:var(--surf2);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);font-weight:700;border-bottom:2px solid var(--border2)}
 td.mono{font-family:'DM Mono'}
-.tbl-wrap{overflow-x:auto}
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+.card>.tbl-wrap{border:none}
+tbody tr{transition:background .12s}
+tbody tr:hover{background:var(--surf2)}
 tr:last-child td{border-bottom:none}
-tr.clickable{cursor:pointer}tr.clickable:hover{background:var(--surf2)}
+tr.clickable{cursor:pointer}
+/* tabla de pedidos: alineada a la izquierda, números a la derecha, más relajada */
+.ptable th,.ptable td{text-align:left}
+.ptable td.mono,.ptable th.num,.ptable td.num{text-align:right}
+.ptable td{padding:15px 14px}
+.ptable td .sub{display:block;font-size:11.5px;color:var(--text3);font-weight:400;margin-top:3px;white-space:normal;max-width:260px;line-height:1.35}
+.ptable td.acts{text-align:right;white-space:nowrap}
+.ptable tbody tr.st-Cancelado{opacity:.62}
+.dlv{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
 
 .barrow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .barrow .nm{width:54px;font-family:'DM Mono';font-weight:700;font-size:13px}
@@ -302,7 +313,14 @@ tr.clickable{cursor:pointer}tr.clickable:hover{background:var(--surf2)}
           <button data-f="Cancelado" onclick="fltPed('Cancelado')">Cancelados</button>
         </div>
       </div>
-      <div class="ped-grid" id="ped-grid"></div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="tbl-wrap" style="border:none">
+          <table class="ptable">
+            <thead><tr><th>Estado</th><th>Cliente</th><th>Producto</th><th class="num">Unidades</th><th>Entrega</th><th>OC / Ref</th><th>Vendedor</th><th></th></tr></thead>
+            <tbody id="ped-tbody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- DATOS -->
@@ -614,14 +632,18 @@ function renderPedidos(){
   if(fltPedido!=='todos')list=list.filter(p=>p.estado===fltPedido);
   if(q)list=list.filter(p=>((p.cliente||'')+' '+(p.prod||'')+' '+(p.oc||'')+' '+(p.obs||'')+' '+(p.vendedor||'')).toLowerCase().includes(q));
   list.sort((a,b)=>{const ap=(a.estado==='Pendiente'||a.estado==='Parcial')?0:1,bp=(b.estado==='Pendiente'||b.estado==='Parcial')?0:1;if(ap!==bp)return ap-bp;if(ap===0)return (a.entrega||'9999').localeCompare(b.entrega||'9999');return (b.fecha||'').localeCompare(a.fecha||'');});
-  const grid=document.getElementById('ped-grid');
-  if(!list.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1;padding:40px 0">No hay pedidos para este filtro</div>';return;}
-  grid.innerHTML=list.map(p=>{const u=pedUrgency(p);const vn=u&&u.venc;return `<div class="pcard st-${p.estado||'Pendiente'}${vn?' venc':''}">
-      <div class="pc-top"><div><div class="pc-cli">${p.cliente||'—'}</div><div class="pc-meta">Pedido ${(p.fecha||'').slice(5)||'s/f'}${p.vendedor?' · '+p.vendedor:''}</div></div><div class="pc-uds"><div class="n">${fmt(p.uds)}</div><div class="u">unidades</div></div></div>
-      <div class="pc-mid"><span class="prodtag ${CAT[p.prod]?.fam==='Ensaladera'?'ens':''}">${p.prod}</span><span class="chip ${PEDCLS[p.estado]||''}">${p.estado}</span>${p.entrega?`<span class="pc-deliv">📦 ${(p.entrega).slice(5)} ${u?`<span class="urg ${u.cls}">${u.txt}</span>`:''}</span>`:''}</div>
-      ${p.obs?`<div class="pc-obs">${p.obs}</div>`:''}
-      <div class="pc-foot"><span class="pc-oc">${p.oc?'OC: '+p.oc:'<span style="color:var(--text3)">sin OC</span>'}</span><div class="pc-acts"><button class="linkact" onclick="openPedido('${p.id}')">✏️</button><button class="linkact del" onclick="delPedido('${p.id}')">🗑</button></div></div>
-    </div>`;}).join('');
+  const tb=document.getElementById('ped-tbody');
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty" style="padding:40px 0;text-align:center">No hay pedidos para este filtro</td></tr>';return;}
+  tb.innerHTML=list.map(p=>{const u=pedUrgency(p);return `<tr class="st-${p.estado||'Pendiente'}">
+      <td><span class="chip ${PEDCLS[p.estado]||''}">${p.estado||'Pendiente'}</span></td>
+      <td><b>${p.cliente||'—'}</b>${p.obs?`<span class="sub">${p.obs}</span>`:''}<span class="sub" style="color:var(--text3)">Pedido ${(p.fecha||'').slice(5)||'s/f'}</span></td>
+      <td><span class="prodtag ${CAT[p.prod]?.fam==='Ensaladera'?'ens':''}">${p.prod}</span></td>
+      <td class="mono"><b>${fmt(p.uds)}</b></td>
+      <td>${p.entrega?`<div class="dlv"><span>${(p.entrega).slice(5)}</span>${u?`<span class="urg ${u.cls}">${u.txt}</span>`:''}</div>`:'<span style="color:var(--text3)">—</span>'}</td>
+      <td>${p.oc||'<span style="color:var(--text3)">—</span>'}</td>
+      <td>${p.vendedor||'<span style="color:var(--text3)">—</span>'}</td>
+      <td class="acts"><button class="linkact" onclick="openPedido('${p.id}')">✏️</button><button class="linkact del" onclick="delPedido('${p.id}')">🗑</button></td>
+    </tr>`;}).join('');
 }
 function fltPed(f){fltPedido=f;document.querySelectorAll('#ped-fseg button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));renderPedidos();}
 
