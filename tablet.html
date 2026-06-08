@@ -201,6 +201,7 @@ td.mono{font-family:'DM Mono'}
     <div class="admin-bar hidden" id="admin-bar">
       <div class="at">🔧 Modo administrador — podés editar y borrar lo cargado</div>
       <button onclick="openOps()">👷 Operarios</button>
+      <button onclick="reconciliarTodos()">🧹 Limpiar pallets sin producción</button>
       <button onclick="exportProduccion()">📊 Exportar producción (Excel)</button>
       <button onclick="borrarTodo()">🗑 Borrar pruebas</button>
     </div>
@@ -437,6 +438,20 @@ function palletBobinas(prod,uxp,cpp,baseConsumed,n){
   return out;
 }
 function bobsTxt(lst){return (lst&&lst.length)?lst.map(x=>`N°${x.nbob}${x.cajas?` · ${x.cajas} cj`:''}`).join('  ·  '):'—';}
+// elimina pallets "huérfanos" de un producto/caja cuando ya no hay producción que los respalde
+function reconciliarPallets(prod,uxp){
+  const cap=groupCajas(prod,uxp);
+  const pals=DB.pallets.filter(p=>p.prod===prod&&p.uxp===uxp).sort((a,b)=>(parseInt(b.num)||0)-(parseInt(a.num)||0));
+  let total=pals.reduce((s,p)=>s+(p.cajas||0),0), removed=0;
+  for(const p of pals){ if(total<=cap)break; DB.pallets=DB.pallets.filter(x=>x.id!==p.id); total-=(p.cajas||0); removed++; }
+  return removed;
+}
+async function reconciliarTodos(){
+  const keys=[...new Set(DB.pallets.map(p=>p.prod+'|'+p.uxp))];
+  let removed=0; keys.forEach(k=>{const i=k.lastIndexOf('|');removed+=reconciliarPallets(k.slice(0,i),parseInt(k.slice(i+1)));});
+  if(removed===0){toast('Todo en orden: no hay pallets sin producción');return;}
+  await saveToCloud(false); toast(`${removed} pallet(s) sin producción eliminados 🧹`);
+}
 
 // ════════ JSONBIN ════════
 function loadCfg(){CFG.apiKey=localStorage.getItem('wf_termo_apikey')||'';CFG.binId=localStorage.getItem('wf_termo_binid')||'';}
@@ -736,7 +751,14 @@ async function adminSaveBob(){
   b.uxp=parseInt(gv('eb-uxp'))||0;b.cajas=parseInt(gv('eb-cajas'))||0;b.uds=parseInt(gv('eb-uds'))||0;b.obs=gv('eb-obs');
   closeModal('modal-eb');await saveToCloud(false);toast('Bobina editada ✓');
 }
-async function adminDelBob(id){if(!confirm('¿Borrar esta bobina?'))return;DB.bobinas=DB.bobinas.filter(b=>b.id!==id);await saveToCloud(false);toast('Bobina borrada');}
+async function adminDelBob(id){
+  const b=DB.bobinas.find(x=>x.id===id);if(!b)return;
+  if(!confirm('¿Borrar esta bobina?'))return;
+  DB.bobinas=DB.bobinas.filter(x=>x.id!==id);
+  const rem=reconciliarPallets(b.prod,b.uxp);
+  await saveToCloud(false);
+  toast(rem>0?`Bobina borrada · ${rem} pallet(s) recalculados`:'Bobina borrada');
+}
 async function adminEditPal(id){const p=DB.pallets.find(x=>x.id===id);if(!p)return;const n=prompt('N° de pallet:',p.num);if(n===null)return;p.num=parseInt(n)||p.num;await saveToCloud(false);toast('Pallet actualizado ✓');}
 async function adminDelPal(id){if(!confirm('¿Borrar este pallet?'))return;DB.pallets=DB.pallets.filter(p=>p.id!==id);await saveToCloud(false);toast('Pallet borrado');}
 async function adminDelCierre(id){if(!confirm('¿Borrar este cierre de turno?'))return;DB.cierres=DB.cierres.filter(c=>c.id!==id);await saveToCloud(false);toast('Cierre borrado');}
