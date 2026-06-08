@@ -575,13 +575,16 @@ tr.cli-row.open{background:var(--surf2)}
     <div class="ent-kpis" id="ent-kpis"></div>
     <div class="ent-sec-t">📦 Entregas registradas</div>
     <div id="ent-list"></div>
+    <div id="ent-form">
     <div class="ent-sec-t" style="margin-top:16px">➕ Registrar nueva entrega</div>
     <div class="frow">
       <div class="field"><label>Fecha</label><input type="date" id="ent-fecha"></div>
       <div class="field"><label>Unidades entregadas</label><input type="number" id="ent-uds" inputmode="numeric" placeholder="0"></div>
     </div>
     <div class="frow c1"><div class="field"><label>Observación (opcional)</label><input type="text" id="ent-obs" placeholder="Remito, comentario…"></div></div>
-    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-entregas')">Cerrar</button><button class="btn btn-green" onclick="registrarEntrega()">+ Registrar entrega</button></div>
+    </div>
+    <div id="ent-done" style="display:none;margin-top:14px;padding:12px;background:var(--green-l);border-radius:10px;color:var(--green);font-weight:600;text-align:center">✓ Pedido entregado por completo — saldo $0</div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-entregas')">Cerrar</button><button class="btn btn-green" id="ent-add-btn" onclick="registrarEntrega()">+ Registrar entrega</button></div>
   </div>
 </div>
 
@@ -749,7 +752,7 @@ function bobsFam(){return DB.bobinas.filter(b=>famOk(b.prod));}
 function producido(p){return DB.bobinas.filter(b=>b.prod===p).reduce((s,b)=>s+(b.uds||0),0);}
 function cajasProd(p){return DB.bobinas.filter(b=>b.prod===p).reduce((s,b)=>s+(b.cajas||0),0);}
 function palletsProd(p){return DB.pallets.filter(x=>x.prod===p).length;}
-function pedEntregado(p){if(p.estado==='Entregado')return p.uds||0;const e=(p.entregas||[]).reduce((s,x)=>s+(x.uds||0),0);return Math.min(e,p.uds||e);}
+function pedEntregado(p){if(p.estado==='Cancelado')return 0;if(p.estado==='Entregado')return p.uds||0;return Math.min((p.entregas||[]).reduce((s,x)=>s+(x.uds||0),0),p.uds||0);}
 function pedPendiente(p){if(p.estado==='Cancelado')return 0;return Math.max(0,(p.uds||0)-pedEntregado(p));}
 function vendido(p){return DB.pedidos.filter(x=>x.prod===p).reduce((s,x)=>s+pedEntregado(x),0);}
 function enPedido(p){return DB.pedidos.filter(x=>x.prod===p&&x.estado!=='Cancelado'&&x.estado!=='Entregado').reduce((s,x)=>s+pedPendiente(x),0);}
@@ -1039,6 +1042,11 @@ async function delPedido(id){if(!confirm('¿Borrar este pedido?'))return;DB.pedi
 // ── cambio rápido de estado desde la lista ──
 async function cambiarEstadoRapido(id,val){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
+  if(val==='Pendiente'&&p.entregas&&p.entregas.length){
+    if(!confirm('Este pedido tiene entregas registradas. ¿Volver a Pendiente y borrar esas entregas?')){renderPedidos();return;}
+    p.entregas=[];
+  }
+  if(val==='Entregado')p.entregas=[];  // entrega total: el saldo queda en 0
   p.estado=val;
   renderPedidos();
   const ok=await saveToCloud();if(ok)toast('Estado: '+val);
@@ -1048,7 +1056,7 @@ async function cambiarEstadoRapido(id,val){
 let entPedId=null;
 function recomputeEstadoPed(p){
   if(p.estado==='Cancelado')return;
-  const ent=(p.entregas||[]).reduce((s,x)=>s+(x.uds||0),0);
+  const ent=Math.min((p.entregas||[]).reduce((s,x)=>s+(x.uds||0),0),p.uds||0);
   p.estado = ent<=0?'Pendiente' : (ent>=(p.uds||0)?'Entregado':'Parcial');
 }
 function openEntregas(id){
@@ -1069,11 +1077,18 @@ function renderEntregas(){
   const lst=p.entregas||[];
   document.getElementById('ent-list').innerHTML=lst.length?lst.map((e,i)=>`<div class="ent-row"><div><b class="mono">${fmt(e.uds)}</b> u <span style="color:var(--text3)">· ${(e.fecha||'').slice(5)||'s/f'}</span>${e.obs?`<span class="sub">${e.obs}</span>`:''}</div><button class="linkact del" onclick="delEntrega(${i})">🗑</button></div>`).join(''):'<div class="empty" style="padding:12px 0">Todavía no se registró ninguna entrega</div>';
   document.getElementById('ent-uds').placeholder=pen>0?('falta '+fmt(pen)):'0';
+  const done=pen<=0&&(p.uds||0)>0&&p.estado!=='Cancelado';
+  document.getElementById('ent-form').style.display=done?'none':'block';
+  document.getElementById('ent-done').style.display=done?'block':'none';
+  document.getElementById('ent-add-btn').style.display=done?'none':'inline-flex';
 }
 async function registrarEntrega(){
   const p=DB.pedidos.find(x=>x.id===entPedId);if(!p)return;
-  const uds=parseInt(gv('ent-uds'))||0;if(uds<=0)return toast('Poné las unidades entregadas','warn');
+  let uds=parseInt(gv('ent-uds'))||0;if(uds<=0)return toast('Poné las unidades entregadas','warn');
   if(!p.entregas)p.entregas=[];
+  const pen=pedPendiente(p);
+  if(pen<=0)return toast('Este pedido ya está entregado por completo','warn');
+  if(uds>pen){uds=pen;toast('Ajusté la entrega al saldo pendiente: '+fmt(pen),'warn');}
   p.entregas.push({fecha:gv('ent-fecha')||new Date().toISOString().split('T')[0],uds,obs:gv('ent-obs').trim()});
   recomputeEstadoPed(p);
   sv('ent-uds','');sv('ent-obs','');
