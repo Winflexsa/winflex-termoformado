@@ -165,6 +165,12 @@ tr.cli-row.open{background:var(--surf2)}
 .tbl-soft tr.stk-zero .prodtag{opacity:.5}
 .tbl-soft .dash{color:var(--border2)}
 .pill-ped{background:var(--mid-l);color:var(--mid);font-size:12px;font-weight:700;padding:2px 9px;border-radius:10px;white-space:nowrap}
+.tbl-soft tr.clickable{cursor:pointer}
+.tbl-soft .chev{display:inline-block;width:15px;color:var(--text3);transition:transform .15s;font-size:11px}
+.tbl-soft tr.open .chev{transform:rotate(90deg)}
+.chev-sp{display:inline-block;width:15px}
+.tbl-soft tr.stk-detail td{padding:0 0 8px;border:none;background:transparent}
+.tbl-soft tr.stk-detail:hover td{background:transparent}
 .crono-table{width:100%;border-collapse:separate;border-spacing:0;min-width:880px}
 .crono-table th,.crono-table td{border:1px solid var(--border2)}
 .crono-th{background:var(--surf2);font-size:12.5px;text-transform:capitalize;padding:8px 6px;text-align:center;color:var(--text);font-weight:700;position:static}
@@ -724,8 +730,17 @@ function cajasXPalletProm(p){
   sizes.forEach(s=>{const d=Math.abs(s-ux);if(d<bd){bd=d;best=s;}});
   return cajasXPallet(p,best)||0;
 }
-function stockCajasP(p){const u=uxpProm(p);return u>0?Math.round(stockActual(p)/u):0;}
-function stockPalletsP(p){const cpp=cajasXPalletProm(p);return cpp>0?Math.round(stockCajasP(p)/cpp*10)/10:0;}
+function stockCajasP(p){const b=stockByBox(p);if(b.length)return b.reduce((s,x)=>s+x.stC,0);const u=uxpProm(p);return u>0?Math.round(stockActual(p)/u):0;}
+function stockPalletsP(p){const b=stockByBox(p);if(b.length)return Math.round(b.reduce((s,x)=>s+x.stP,0)*10)/10;const cpp=cajasXPalletProm(p);return cpp>0?Math.round(stockCajasP(p)/cpp*10)/10:0;}
+// Producción agrupada por tipo de caja (uxp). Exacto desde las bobinas.
+function prodByBox(p){const m={};DB.bobinas.filter(b=>b.prod===p).forEach(b=>{const u=b.uxp||0;if(!u)return;m[u]=m[u]||{uxp:u,uds:0,cajas:0};m[u].uds+=b.uds||0;m[u].cajas+=b.cajas||0;});return Object.values(m).sort((a,b)=>b.uxp-a.uxp);}
+// Stock repartido por tipo de caja, proporcional a lo producido en cada tamaño (las ventas no traen tipo de caja).
+function stockByBox(p){
+  const boxes=prodByBox(p);const totProd=boxes.reduce((s,x)=>s+x.uds,0);
+  if(!boxes.length||totProd<=0)return [];
+  const sa=stockActual(p);
+  return boxes.map(x=>{const frac=x.uds/totProd;const stU=sa*frac;const stC=x.uxp>0?stU/x.uxp:0;const cpp=cajasXPallet(p,x.uxp)||0;return {uxp:x.uxp,prodUds:x.uds,prodCajas:x.cajas,frac,stU:Math.round(stU),stC:Math.round(stC),stP:cpp>0?Math.round(stC/cpp*10)/10:0,cpp};});
+}
 function eficProm(p){const g={};DB.bobinas.filter(b=>b.prod===p).forEach(b=>{const k=b.fecha+'|'+b.turno;g[k]=(g[k]||0)+(b.uds||0);});const vs=[];Object.keys(g).forEach(k=>{const t=k.split('|')[1];const o=objetivoTurno(p,t);if(o>0)vs.push(g[k]/o*100);});return vs.length?Math.round(vs.reduce((a,v)=>a+v,0)/vs.length):null;}
 function turnosProd(p){const s=new Set();DB.bobinas.filter(b=>b.prod===p).forEach(b=>s.add(b.fecha+'|'+b.turno));return s.size;}
 
@@ -814,6 +829,10 @@ function renderProduccion(){
 function toggleDia(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('day-detail'))d.style.display=op?'table-row':'none';}
 
 let stockSoloMov=true;
+function boxDetail(p,boxes){
+  return `<div class="subwrap"><table class="subtbl"><thead><tr><th>Tamaño de caja</th><th class="num">Producido (u)</th><th class="num">% prod.</th><th class="num">Stock (u) est.</th><th class="num">Stock (cajas)</th><th class="num">Stock (pallets)</th></tr></thead><tbody>${boxes.map(x=>`<tr><td><b>${fmt(x.uxp)}</b> u/caja${x.cpp?` · ${x.cpp} cajas/pallet`:''}</td><td class="num">${fmt(x.prodUds)}</td><td class="num">${Math.round(x.frac*100)}%</td><td class="num">${fmt(x.stU)}</td><td class="num">${fmt(x.stC)}</td><td class="num">${x.stP}</td></tr>`).join('')}</tbody></table><div class="card-note" style="margin:8px 0 2px">Estimado: el stock se reparte por tamaño según cuánto se produjo en cada caja (las ventas no registran el tipo de caja).</div></div>`;
+}
+function toggleStockRow(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('stk-detail'))d.style.display=op?'table-row':'none';}
 function tieneMov(p){return producido(p)>0||vendido(p)>0||stockActual(p)!==0||enPedido(p)>0||(stockCfg(p).ini||0)>0||ajustesProd(p)!==0;}
 function toggleStockMov(){stockSoloMov=!stockSoloMov;renderStock();}
 function renderStock(){
@@ -823,7 +842,10 @@ function renderStock(){
   // ── Stock disponible ──
   document.getElementById('stock-tbody').innerHTML=shown.map(p=>{
     const sa=stockActual(p),sc=stockCajasP(p),sp=stockPalletsP(p),ep=enPedido(p);const z=sa===0;
-    return `<tr class="${z?'stk-zero':''}"><td><span class="prodtag ${ens(p)}">${p}</span></td><td class="num stk-main" style="${sa<0?'color:var(--bad)':''}">${fmt(sa)}</td><td class="num">${z?'<span class="dash">—</span>':fmt(sc)}</td><td class="num">${z?'<span class="dash">—</span>':sp}</td><td class="num">${ep>0?'<span class="pill-ped">⏳ '+fmt(ep)+'</span>':'<span class="dash">—</span>'}</td></tr>`;
+    const boxes=stockByBox(p);const exp=boxes.length>0;
+    const chev=exp?'<span class="chev">▸</span>':'<span class="chev-sp"></span>';
+    const det=exp?`<tr class="stk-detail" style="display:none"><td colspan="5">${boxDetail(p,boxes)}</td></tr>`:'';
+    return `<tr class="${z?'stk-zero':''}${exp?' clickable':''}" ${exp?'onclick="toggleStockRow(this)"':''}><td>${chev}<span class="prodtag ${ens(p)}">${p}</span></td><td class="num stk-main" style="${sa<0?'color:var(--bad)':''}">${fmt(sa)}</td><td class="num">${z?'<span class="dash">—</span>':fmt(sc)}</td><td class="num">${z?'<span class="dash">—</span>':sp}</td><td class="num">${ep>0?'<span class="pill-ped">⏳ '+fmt(ep)+'</span>':'<span class="dash">—</span>'}</td></tr>`+det;
   }).join('')||`<tr><td colspan="5" class="empty">Sin stock para esta familia</td></tr>`;
   document.getElementById('stk-toggle').textContent=stockSoloMov?'Ver todos':'Sólo con movimiento';
   // ── Producción y ventas ──
