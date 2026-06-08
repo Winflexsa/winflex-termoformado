@@ -679,7 +679,9 @@ const USERS={'1205':{n:'Matías',r:'Administrador'},'3080':{n:'Jonathan',r:'Inge
 
 // ════════ ESTADO ════════
 let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},ajustes:[],clientes:[],cronograma:[],operarios:[]};
-let CFG={apiKey:'',binId:''};
+const DEFAULT_MASTER_KEY='$2a$10$8p4t41BnTv.9Ls.4kFLhouDMqJGQEd5LQlBYEz8n1y6nH/3dFq27G';
+const DEFAULT_BIN_ID='6a243e42da38895dfe915231';
+let CFG={apiKey:DEFAULT_MASTER_KEY,binId:DEFAULT_BIN_ID};
 let curUser=null, editPedId=null, famFilter='Todos', dirty=false, prodDirty=false;
 function mergeById(localArr,cloudArr){const m=new Map();(cloudArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});(localArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});return [...m.values()];}
 const gv=id=>document.getElementById(id).value;
@@ -690,7 +692,7 @@ const eColor=e=>e===null?'var(--text3)':e>=100?'var(--ok)':e>=80?'var(--mid)':'v
 const eTag=e=>e===null?'':`<span class="tg ${e>=100?'tg-ok':e>=80?'tg-mid':'tg-bad'}">${e}%</span>`;
 
 // ════════ JSONBIN (robusto) ════════
-function loadCfg(){CFG.apiKey=localStorage.getItem('wf_termo_apikey')||'';CFG.binId=localStorage.getItem('wf_termo_binid')||'';}
+function loadCfg(){CFG.apiKey=localStorage.getItem('wf_termo_apikey')||DEFAULT_MASTER_KEY;CFG.binId=localStorage.getItem('wf_termo_binid')||DEFAULT_BIN_ID;saveCfgLocal();}
 function saveCfgLocal(){localStorage.setItem('wf_termo_apikey',CFG.apiKey);localStorage.setItem('wf_termo_binid',CFG.binId);}
 function setSync(s,t){const d=document.getElementById('sync-dot');if(d)d.className='sync-dot '+s;const x=document.getElementById('sync-txt');if(x)x.textContent=t;}
 async function loadFromCloud(force){

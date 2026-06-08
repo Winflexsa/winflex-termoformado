@@ -409,7 +409,9 @@ const PIN_ADMIN='9090';
 // ════════ ESTADO ════════
 let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},operarios:[]};
 DB.operarios=JSON.parse(localStorage.getItem('wf_termo_operarios')||'null')||OPERARIOS_DEFAULT.slice();
-let CFG={apiKey:'',binId:''};
+const DEFAULT_MASTER_KEY='$2a$10$8p4t41BnTv.9Ls.4kFLhouDMqJGQEd5LQlBYEz8n1y6nH/3dFq27G';
+const DEFAULT_BIN_ID='6a243e42da38895dfe915231';
+let CFG={apiKey:DEFAULT_MASTER_KEY,binId:DEFAULT_BIN_ID};
 let cloudExtra={};
 let sel={turno:null,prod:null,ops:[],encargado:null};
 let curUser=null;
@@ -461,7 +463,7 @@ async function reconciliarTodos(){
 }
 
 // ════════ JSONBIN ════════
-function loadCfg(){CFG.apiKey=localStorage.getItem('wf_termo_apikey')||'';CFG.binId=localStorage.getItem('wf_termo_binid')||'';}
+function loadCfg(){CFG.apiKey=localStorage.getItem('wf_termo_apikey')||DEFAULT_MASTER_KEY;CFG.binId=localStorage.getItem('wf_termo_binid')||DEFAULT_BIN_ID;saveCfgLocal();}
 function saveCfgLocal(){localStorage.setItem('wf_termo_apikey',CFG.apiKey);localStorage.setItem('wf_termo_binid',CFG.binId);}
 function setSync(s,t){const d=document.getElementById('sync-dot');if(d)d.className='sync-dot '+s;const x=document.getElementById('sync-txt');if(x)x.textContent=t;}
 async function loadFromCloud(){
