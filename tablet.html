@@ -599,13 +599,14 @@ function abrirConfirmPallet(prod,uxp,fecha,turno){
   const n=pendientes(prod,uxp); if(n<1)return;
   const base=palletsCajas(prod,uxp);
   const bobs=palletBobinas(prod,uxp,cpp,base,n);
-  pendConfirm={prod,uxp,cpp,fecha,turno,n,bobs};
+  pendConfirm={prod,uxp,cpp,fecha,turno,n,bobs,base};
   const start=proximoNum();
   document.getElementById('pal-confirm-sub').textContent=(n===1?'Se completó un pallet':'Se completaron '+n+' pallets')+` de ${prod} (caja ${fmt(uxp)}, ${cpp} cajas c/u). Revisá el número y confirmá.`;
   let h='';
   for(let i=0;i<n;i++){
+    const cFrom=base+i*cpp+1, cTo=base+(i+1)*cpp;
     h+=`<div class="pal-confirm-item">
-      <div class="info"><b>${prod}</b> · ${cpp} cajas · ${fmt(cpp*uxp)} u<br><span style="color:var(--text3)">caja ${fmt(uxp)} · ${turno}</span><br><span class="pal-bobs">🎞️ Bobinas: ${bobsTxt(bobs[i])}</span></div>
+      <div class="info"><b>${prod}</b> · ${cpp} cajas · ${fmt(cpp*uxp)} u<br><span style="color:var(--text3)">caja ${fmt(uxp)} · ${turno}</span><br><span class="pal-bobs">📦 Cajas ${fmt(cFrom)}–${fmt(cTo)}  ·  🎞️ ${bobsTxt(bobs[i])}</span></div>
       <div class="numwrap"><label>N° pallet</label><input type="number" inputmode="numeric" class="pal-num-input" value="${start+i}"></div>
     </div>`;
   }
@@ -619,11 +620,12 @@ function abrirConfirmPalletDesdeForm(){
 }
 async function confirmarPallets(){
   if(!pendConfirm)return;
-  const {prod,uxp,cpp,fecha,turno,n,bobs}=pendConfirm;
+  const {prod,uxp,cpp,fecha,turno,n,bobs,base}=pendConfirm;
   const inputs=document.querySelectorAll('#pal-confirm-body .pal-num-input');
   for(let i=0;i<n;i++){
     const num=parseInt(inputs[i].value)||proximoNum();
-    DB.pallets.push({id:Date.now()+'_'+i+'_'+Math.random().toString(36).slice(2,5),num,prod,uxp,cpp,cajas:cpp,uds:cpp*uxp,fecha,turno,encargado:sel.encargado||'',operarios:[...sel.ops],bobinas:(bobs&&bobs[i])||[],ts:new Date().toLocaleTimeString('es-AR'),confirmado:true});
+    const cFrom=(base||0)+i*cpp+1, cTo=(base||0)+(i+1)*cpp;
+    DB.pallets.push({id:Date.now()+'_'+i+'_'+Math.random().toString(36).slice(2,5),num,prod,uxp,cpp,cajas:cpp,uds:cpp*uxp,cajaDesde:cFrom,cajaHasta:cTo,fecha,turno,encargado:sel.encargado||'',operarios:[...sel.ops],bobinas:(bobs&&bobs[i])||[],ts:new Date().toLocaleTimeString('es-AR'),confirmado:true});
   }
   pendConfirm=null;closeModal('modal-pal');
   await saveToCloud(false);
@@ -707,7 +709,7 @@ function renderPalList(){
   const el=document.getElementById('pal-list');if(!el)return;
   const items=DB.pallets.slice().sort((a,b)=>(parseInt(b.num)||0)-(parseInt(a.num)||0)).slice(0,admin?200:25);
   if(!items.length){el.innerHTML='<div class="empty">Todavía no se cerró ningún pallet</div>';return;}
-  el.innerHTML=items.map(p=>`<div class="list-item"><div class="li-pal">#${p.num}</div><div class="li-meta"><b>${p.prod}</b> · caja ${fmt(p.uxp)} · ${p.cpp} cajas · ${(p.fecha||'').slice(5)} ${p.turno||''}`+((p.bobinas&&p.bobinas.length)?`<br><span style="color:var(--text3)">🎞️ ${p.bobinas.map(x=>'N°'+x.nbob).join(', ')}</span>`:'')+`</div>`+(admin?actBtns('pal',p.id):'')+`</div>`).join('');
+  el.innerHTML=items.map(p=>`<div class="list-item"><div class="li-pal">#${p.num}</div><div class="li-meta"><b>${p.prod}</b> · caja ${fmt(p.uxp)} · ${p.cpp} cajas · ${(p.fecha||'').slice(5)} ${p.turno||''}`+(p.cajaDesde?`<br><span style="color:var(--text3)">📦 cajas ${fmt(p.cajaDesde)}–${fmt(p.cajaHasta)}`+((p.bobinas&&p.bobinas.length)?` · 🎞️ ${p.bobinas.map(x=>'N°'+x.nbob).join(', ')}`:'')+`</span>`:((p.bobinas&&p.bobinas.length)?`<br><span style="color:var(--text3)">🎞️ ${p.bobinas.map(x=>'N°'+x.nbob).join(', ')}</span>`:''))+`</div>`+(admin?actBtns('pal',p.id):'')+`</div>`).join('');
 }
 function renderCierreList(){
   const el=document.getElementById('cierre-list');if(!el)return;
