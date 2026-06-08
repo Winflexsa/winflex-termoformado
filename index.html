@@ -150,22 +150,32 @@ tr.cli-row.open{background:var(--surf2)}
 .c-canc{background:var(--surf3);color:var(--text2)}
 .prodtag{font-family:'DM Mono';font-weight:700;font-size:12px;padding:2px 8px;border-radius:5px;background:var(--cl-l);color:var(--cl)}
 .prodtag.ens{background:var(--en-l);color:var(--green-dd)}
-.crono-table{width:100%;border-collapse:separate;border-spacing:0;min-width:780px}
+.crono-table{width:100%;border-collapse:separate;border-spacing:0;min-width:880px}
 .crono-table th,.crono-table td{border:1px solid var(--border2)}
-.crono-th{background:var(--surf2);font-size:12px;text-transform:capitalize;padding:7px 6px;text-align:center;color:var(--text2);font-weight:700;position:static}
-.crono-th-t{background:var(--surf2);width:60px;position:static}
-.crono-th-d{font-weight:400;color:var(--text3);font-size:11px}
+.crono-th{background:var(--surf2);font-size:12.5px;text-transform:capitalize;padding:8px 6px;text-align:center;color:var(--text);font-weight:700;position:static}
+.crono-th-t{background:var(--surf2);width:84px;position:static}
+.crono-th-d{font-weight:500;color:var(--text3);font-size:11px;margin-top:1px}
 .crono-hoy{background:var(--green-l)!important}
-.crono-turno{text-align:center;background:var(--surf);vertical-align:middle;width:60px}
-.crono-cell{vertical-align:top;padding:6px;min-width:108px;height:74px}
-.crono-chip{background:var(--cl-l);border-left:3px solid var(--cl);border-radius:6px;padding:5px 7px;margin-bottom:5px;cursor:pointer;font-size:12px;line-height:1.25}
+.crono-th.crono-hoy{color:var(--green-dd)}
+.crono-turno{text-align:center;background:var(--surf2);vertical-align:middle;width:84px;padding:8px 4px}
+.crono-rowlbl{font-weight:800;font-size:14px}
+.crono-rowh{font-size:11px;color:var(--text3);margin-top:3px}
+.crono-cell{vertical-align:top;padding:7px;min-width:118px;height:96px}
+.crono-seg{display:flex;gap:4px;margin-bottom:7px}
+.crono-seg button{flex:1;border:1.5px solid var(--border2);background:var(--surf);border-radius:7px;padding:4px 3px;font-size:11px;font-weight:800;color:var(--text2);cursor:pointer;display:flex;flex-direction:column;align-items:center;line-height:1.15}
+.crono-seg button small{font-weight:500;color:var(--text3);font-size:9px}
+.crono-seg button.on{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.crono-seg button.on small{color:rgba(255,255,255,.9)}
+.crono-seg.ro button{cursor:default;flex:none;padding:6px 14px;flex-direction:row;gap:6px}
+.crono-chip{background:var(--cl-l);border-left:3px solid var(--cl);border-radius:7px;padding:6px 8px;margin-bottom:6px;cursor:pointer;font-size:12px;line-height:1.3;transition:transform .08s}
 .crono-chip.ens{background:var(--en-l);border-left-color:var(--en)}
-.crono-chip:hover{filter:brightness(.97)}
-.cc-top{font-family:'DM Mono'}
-.cc-ops{color:var(--text2);font-size:11px;margin-top:2px}
+.crono-chip:hover{transform:translateY(-1px);filter:brightness(.98)}
+.cc-top{display:flex;align-items:center;justify-content:space-between;gap:6px;font-family:'DM Mono'}
+.cc-meta{font-family:'DM Sans';font-weight:700;font-size:10.5px;background:rgba(0,0,0,.07);padding:1px 7px;border-radius:9px;white-space:nowrap}
+.cc-ops{color:var(--text2);font-size:11px;margin-top:3px}
 .cc-obs{color:var(--text3);font-size:11px;font-style:italic;margin-top:2px}
-.crono-add{display:block;width:100%;border:1px dashed var(--border2);background:none;color:var(--text3);border-radius:6px;padding:3px;cursor:pointer;font-size:14px}
-.crono-add:hover{border-color:var(--green);color:var(--green-d)}
+.crono-add{display:block;width:100%;border:1.5px dashed var(--border2);background:none;color:var(--text3);border-radius:7px;padding:4px;cursor:pointer;font-size:12px;font-weight:600}
+.crono-add:hover{border-color:var(--green);color:var(--green-d);background:var(--green-l)}
 .cr-ops{display:flex;flex-wrap:wrap;gap:7px}
 .op-chip-sm{background:var(--surf2);border:1.5px solid var(--border2);border-radius:16px;padding:5px 11px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2)}
 .op-chip-sm.sel{background:var(--green-l);border-color:var(--green);color:var(--green-d)}
@@ -561,8 +571,8 @@ tr.cli-row.open{background:var(--surf2)}
 
 <div class="modal-ov" id="modal-crono">
   <div class="modal"><h3 id="crono-title">Planificar producción</h3>
-    <div class="frow"><div class="field"><label>Fecha</label><input type="date" id="cr-fecha"></div><div class="field"><label>Turno</label><select id="cr-turno"><option>M1</option><option>M2</option><option>N</option></select></div></div>
-    <div class="frow"><div class="field"><label>Producto</label><select id="cr-prod"></select></div><div class="field"><label>Meta de unidades (opcional)</label><input type="number" id="cr-meta" placeholder="0"></div></div>
+    <div class="frow"><div class="field"><label>Fecha</label><input type="date" id="cr-fecha"></div><div class="field" id="cr-turno-wrap"></div></div>
+    <div class="frow"><div class="field"><label>Producto</label><select id="cr-prod"></select></div><div class="field"><label>Meta de pallets (opcional)</label><input type="number" id="cr-meta" placeholder="0"></div></div>
     <div class="frow c1"><div class="field"><label>Operarios asignados</label><div id="cr-ops" class="cr-ops"></div></div></div>
     <div class="frow c1"><div class="field"><label>Observaciones</label><textarea id="cr-obs" rows="2" placeholder="Opcional…"></textarea></div></div>
     <div class="modal-foot"><button class="linkact del" id="cr-del" style="margin-right:auto" onclick="delCrono()">🗑 Eliminar</button><button class="btn btn-outline" onclick="closeModal('modal-crono')">Cancelar</button><button class="btn btn-green" onclick="saveCrono()">Guardar</button></div>
@@ -1223,8 +1233,9 @@ async function saveCliente(){
 async function delCliente(id){const c=DB.clientes.find(x=>x.id===id);if(!c)return;const st=clienteStats(c.nombre);if(st.n>0){if(!confirm('"'+c.nombre+'" tiene '+st.n+' pedido(s) asociados. Se borra el cliente de la lista pero los pedidos quedan. ¿Continuar?'))return;}else{if(!confirm('¿Borrar a "'+c.nombre+'"?'))return;}DB.clientes=DB.clientes.filter(x=>x.id!==id);closeModal('modal-cliente');refreshClienteDatalist();const ok=await saveToCloud();if(ok)toast('Cliente borrado');}
 
 // ════════ CRONOGRAMA (planificación semanal) ════════
-const TURNOS_CR=['M1','M2','N'];
-let cronoMonday=null, editCronoId=null, cronoOps=[];
+const HORARIO_CR={M1:'07–16',M2:'07–19',N:'19–07'};
+let cronoMonday=null, editCronoId=null, cronoOps=[], crFecha=null, crRow='dia', crTurno='M1';
+const cronoDiaPref={};
 function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function mondayStr(d){const x=new Date(d);x.setHours(0,0,0,0);const wd=(x.getDay()+6)%7;x.setDate(x.getDate()-wd);return ymd(x);}
 function cronoInit(){if(!cronoMonday)cronoMonday=mondayStr(new Date());}
@@ -1232,6 +1243,9 @@ function cronoShift(n){cronoInit();const d=new Date(cronoMonday+'T00:00');d.setD
 function cronoHoy(){cronoMonday=mondayStr(new Date());renderCronograma();}
 function cronoDias(){cronoInit();const base=new Date(cronoMonday+'T00:00');const out=[];for(let i=0;i<7;i++){const d=new Date(base);d.setDate(d.getDate()+i);out.push(ymd(d));}return out;}
 function cronoOperarios(){return (DB.operarios&&DB.operarios.length)?DB.operarios.map(o=>o.n):['Luna Gabriel','Garbia Luis','Vera Alan','Rodriguez Alan','Zayas Antonio','Vera Juan'];}
+// El turno de día es M1 O M2 (excluyente). diaTurno deriva el turno del día desde lo cargado.
+function diaTurno(f){const s=(DB.cronograma||[]).find(x=>x.fecha===f&&(x.turno==='M1'||x.turno==='M2'));return s?s.turno:(cronoDiaPref[f]||'M1');}
+async function setDiaTurno(f,t){cronoDiaPref[f]=t;let ch=false;(DB.cronograma||[]).forEach(x=>{if(x.fecha===f&&(x.turno==='M1'||x.turno==='M2')){if(x.turno!==t)ch=true;x.turno=t;}});renderCronograma();if(ch){const ok=await saveToCloud();if(ok)toast('Turno de día actualizado ✓');}}
 function renderCronograma(){
   if(!document.getElementById('crono-grid'))return;
   cronoInit();
@@ -1242,35 +1256,59 @@ function renderCronograma(){
   const prodset=new Set(wk.map(s=>s.prod));
   document.getElementById('crono-kpis').innerHTML=`
     <div class="kpi"><div class="v">${fmt(wk.length)}</div><div class="l">Asignaciones esta semana</div></div>
-    <div class="kpi"><div class="v">${fmt(meta)}</div><div class="l">Meta de unidades</div></div>
+    <div class="kpi"><div class="v">${fmt(meta)}</div><div class="l">Meta de pallets</div></div>
     <div class="kpi"><div class="v">${fmt(prodset.size)}</div><div class="l">Productos planificados</div></div>`;
   const d0=new Date(dias[0]+'T00:00'),d6=new Date(dias[6]+'T00:00');
   document.getElementById('crono-label').textContent='Semana del '+d0.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' al '+d6.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
   const hoy=ymd(new Date());
-  const head='<tr><th class="crono-th-t">Turno</th>'+dias.map(f=>{const dd=new Date(f+'T00:00');return `<th class="crono-th${f===hoy?' crono-hoy':''}">${dd.toLocaleDateString('es-AR',{weekday:'short'})}<div class="crono-th-d">${dd.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})}</div></th>`;}).join('')+'</tr>';
-  const body=TURNOS_CR.map(t=>'<tr><td class="crono-turno"><span class="turno-pill">'+t+'</span></td>'+dias.map(f=>{
-    const cell=slots.filter(s=>s.fecha===f&&s.turno===t).sort((a,b)=>(a.prod||'').localeCompare(b.prod||''));
-    const chips=cell.map(s=>{const ens=CAT[s.prod]&&CAT[s.prod].fam==='Ensaladera';return `<div class="crono-chip${ens?' ens':''}" onclick="openCrono('${s.id}')"><div class="cc-top"><b>${s.prod}</b>${s.meta?` · ${fmt(s.meta)}u`:''}</div>${(s.operarios&&s.operarios.length)?`<div class="cc-ops">${s.operarios.join(', ')}</div>`:''}${s.obs?`<div class="cc-obs">${s.obs}</div>`:''}</div>`;}).join('');
-    return `<td class="crono-cell${f===hoy?' crono-hoy':''}">${chips}<button class="crono-add" onclick="openCrono(null,'${f}','${t}')">＋</button></td>`;
-  }).join('')+'</tr>').join('');
-  document.getElementById('crono-grid').innerHTML='<table class="crono-table">'+head+body+'</table>';
+  const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+  const head='<tr><th class="crono-th-t"></th>'+dias.map(f=>{const dd=new Date(f+'T00:00');const h=f===hoy;return `<th class="crono-th${h?' crono-hoy':''}">${cap(dd.toLocaleDateString('es-AR',{weekday:'short'}).replace('.',''))}<div class="crono-th-d">${dd.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})}${h?' · hoy':''}</div></th>`;}).join('')+'</tr>';
+  const chipHTML=s=>{const ens=CAT[s.prod]&&CAT[s.prod].fam==='Ensaladera';return `<div class="crono-chip${ens?' ens':''}" onclick="openCrono('${s.id}')"><div class="cc-top"><b>${s.prod}</b>${s.meta?`<span class="cc-meta">${fmt(s.meta)} pal</span>`:''}</div>${(s.operarios&&s.operarios.length)?`<div class="cc-ops">👷 ${s.operarios.join(', ')}</div>`:''}${s.obs?`<div class="cc-obs">${s.obs}</div>`:''}</div>`;};
+  // Fila DÍA (M1 o M2, excluyente por día)
+  const filaDia=`<tr><td class="crono-turno"><div class="crono-rowlbl">☀️ Día</div><div class="crono-rowh">M1 o M2</div></td>`+dias.map(f=>{
+    const dt=diaTurno(f);const cell=slots.filter(s=>s.fecha===f&&(s.turno==='M1'||s.turno==='M2')).sort((a,b)=>(a.prod||'').localeCompare(b.prod||''));
+    const seg=`<div class="crono-seg"><button class="${dt==='M1'?'on':''}" onclick="setDiaTurno('${f}','M1')">M1<small>${HORARIO_CR.M1}</small></button><button class="${dt==='M2'?'on':''}" onclick="setDiaTurno('${f}','M2')">M2<small>${HORARIO_CR.M2}</small></button></div>`;
+    return `<td class="crono-cell${f===hoy?' crono-hoy':''}">${seg}${cell.map(chipHTML).join('')}<button class="crono-add" onclick="openCrono(null,'${f}','dia')">＋ producto</button></td>`;
+  }).join('')+`</tr>`;
+  // Fila NOCHE (N)
+  const filaN=`<tr><td class="crono-turno"><div class="crono-rowlbl">🌙 Noche</div><span class="turno-pill">N</span><div class="crono-rowh">${HORARIO_CR.N}</div></td>`+dias.map(f=>{
+    const cell=slots.filter(s=>s.fecha===f&&s.turno==='N').sort((a,b)=>(a.prod||'').localeCompare(b.prod||''));
+    return `<td class="crono-cell${f===hoy?' crono-hoy':''}">${cell.map(chipHTML).join('')}<button class="crono-add" onclick="openCrono(null,'${f}','noche')">＋ producto</button></td>`;
+  }).join('')+`</tr>`;
+  document.getElementById('crono-grid').innerHTML='<table class="crono-table">'+head+filaDia+filaN+'</table>';
 }
 function renderCrOps(){const el=document.getElementById('cr-ops');if(!el)return;const ops=cronoOperarios();el.innerHTML=ops.length?ops.map(n=>`<div class="op-chip-sm${cronoOps.includes(n)?' sel':''}" onclick="toggleCrOp('${n.replace(/'/g,"\\'")}')">${n}</div>`).join(''):'<span style="color:var(--text3);font-size:13px">Todavía no hay operarios cargados (se dan de alta desde la tablet).</span>';}
 function toggleCrOp(n){if(cronoOps.includes(n))cronoOps=cronoOps.filter(x=>x!==n);else cronoOps.push(n);renderCrOps();}
-function openCrono(id,fecha,turno){
+function setCrTurno(t){crTurno=t;document.querySelectorAll('#cr-turno-seg button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));}
+function openCrono(id,fecha,row){
   editCronoId=id||null;cronoOps=[];
-  const sel=document.getElementById('cr-prod');const pf=PRODS.filter(famOk);sel.innerHTML=(pf.length?pf:PRODS).map(p=>`<option value="${p}">${p}</option>`).join('');
-  if(id){const s=(DB.cronograma||[]).find(x=>x.id===id);if(!s)return;document.getElementById('crono-title').textContent='Editar asignación';sv('cr-fecha',s.fecha);sv('cr-turno',s.turno);sv('cr-prod',s.prod);sv('cr-meta',s.meta||'');sv('cr-obs',s.obs||'');cronoOps=(s.operarios||[]).slice();document.getElementById('cr-del').style.display='';}
-  else{document.getElementById('crono-title').textContent='Planificar producción';sv('cr-fecha',fecha||ymd(new Date()));sv('cr-turno',turno||'M1');sv('cr-meta','');sv('cr-obs','');document.getElementById('cr-del').style.display='none';}
+  const psel=document.getElementById('cr-prod');const pf=PRODS.filter(famOk);psel.innerHTML=(pf.length?pf:PRODS).map(p=>`<option value="${p}">${p}</option>`).join('');
+  if(id){const s=(DB.cronograma||[]).find(x=>x.id===id);if(!s)return;
+    crFecha=s.fecha;crRow=(s.turno==='N')?'noche':'dia';crTurno=s.turno;
+    document.getElementById('crono-title').textContent='Editar asignación';
+    sv('cr-fecha',s.fecha);sv('cr-prod',s.prod);sv('cr-meta',s.meta||'');sv('cr-obs',s.obs||'');
+    cronoOps=(s.operarios||[]).slice();document.getElementById('cr-del').style.display='';
+  }else{
+    crFecha=fecha||ymd(new Date());crRow=row||'dia';crTurno=(crRow==='noche')?'N':diaTurno(crFecha);
+    document.getElementById('crono-title').textContent='Planificar producción';
+    sv('cr-fecha',crFecha);sv('cr-prod',(pf[0]||PRODS[0]));sv('cr-meta','');sv('cr-obs','');
+    document.getElementById('cr-del').style.display='none';
+  }
+  const wrap=document.getElementById('cr-turno-wrap');
+  if(crRow==='noche'){wrap.innerHTML='<label>Turno</label><div class="crono-seg ro"><button class="on">🌙 Noche · N <small>'+HORARIO_CR.N+'</small></button></div>';}
+  else{wrap.innerHTML='<label>Turno de día <span style="color:var(--text3);font-weight:400">(M1 o M2)</span></label><div class="crono-seg" id="cr-turno-seg"><button data-t="M1" onclick="setCrTurno(\'M1\')">M1<small>'+HORARIO_CR.M1+'</small></button><button data-t="M2" onclick="setCrTurno(\'M2\')">M2<small>'+HORARIO_CR.M2+'</small></button></div>';setCrTurno(crTurno);}
   renderCrOps();
   document.getElementById('modal-crono').classList.add('show');
 }
 async function saveCrono(){
-  const fecha=gv('cr-fecha'),turno=gv('cr-turno'),prod=gv('cr-prod');
+  const fecha=gv('cr-fecha'),prod=gv('cr-prod');
   if(!fecha)return toast('Elegí la fecha','warn');if(!prod)return toast('Elegí el producto','warn');
+  const turno=(crRow==='noche')?'N':(crTurno==='M2'?'M2':'M1');
   const o={fecha,turno,prod,meta:parseInt(gv('cr-meta'))||0,operarios:cronoOps.slice(),obs:gv('cr-obs').trim()};
   if(editCronoId){const s=DB.cronograma.find(x=>x.id===editCronoId);if(s)Object.assign(s,o);}
   else{o.id='cr'+Date.now()+'_'+Math.random().toString(36).slice(2,5);if(!DB.cronograma)DB.cronograma=[];DB.cronograma.push(o);}
+  // Día: alinear TODO el día a ese turno (no se mezclan M1 y M2 el mismo día)
+  if(turno==='M1'||turno==='M2'){cronoDiaPref[fecha]=turno;DB.cronograma.forEach(x=>{if(x.fecha===fecha&&(x.turno==='M1'||x.turno==='M2'))x.turno=turno;});}
   closeModal('modal-crono');renderCronograma();const ok=await saveToCloud();if(ok)toast('Cronograma guardado ✓');
 }
 async function delCrono(){

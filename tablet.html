@@ -62,6 +62,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .op-chip{background:var(--surf2);border:1.5px solid var(--border2);border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer}
 .op-chip.sel{background:var(--green-l);border-color:var(--green);color:var(--green-d)}
 .op-chip.lead{background:var(--green-d);border-color:var(--green-d);color:#fff}
+.list-item.editing{outline:2px solid var(--green);outline-offset:-1px}
 
 .admin-bar{background:var(--orange-l);border:1px solid #f0d8c4;border-radius:var(--r);padding:13px 15px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .admin-bar .at{font-size:13px;font-weight:700;color:var(--orange)}
@@ -342,7 +343,8 @@ td.mono{font-family:'DM Mono'}
       <div><label>Nombre</label><input type="text" id="op-nombre" placeholder="Nombre y apellido"></div>
       <div><label>PIN (4 dígitos)</label><input type="number" id="op-pin" inputmode="numeric" placeholder="0000"></div>
     </div>
-    <button class="btn btn-green" style="margin-top:6px" onclick="addOperario()">＋ Agregar operario</button>
+    <button class="btn btn-green" style="margin-top:6px" id="op-save-btn" onclick="saveOperario()">＋ Agregar operario</button>
+    <button class="btn btn-outline" style="margin-top:10px;display:none" id="op-cancel-btn" onclick="resetOpForm()">Cancelar edición</button>
     <button class="btn btn-outline" style="margin-top:10px" onclick="closeModal('modal-ops')">Cerrar</button>
   </div>
 </div>
@@ -694,26 +696,36 @@ async function borrarTodo(){
 }
 
 // ════════ ADMIN: operarios ════════
-function openOps(){renderOpsList();sv('op-nombre','');sv('op-pin','');document.getElementById('modal-ops').classList.add('show');}
+let editOpIdx=null;
+function openOps(){editOpIdx=null;resetOpForm();renderOpsList();document.getElementById('modal-ops').classList.add('show');}
+function resetOpForm(){sv('op-nombre','');sv('op-pin','');const b=document.getElementById('op-save-btn');if(b)b.textContent='＋ Agregar operario';const c=document.getElementById('op-cancel-btn');if(c)c.style.display='none';}
 function renderOpsList(){
   const el=document.getElementById('ops-list');if(!el)return;
-  el.innerHTML=DB.operarios.map((o,i)=>`<div class="list-item"><div class="li-meta"><b>${o.n}</b> · PIN ${o.pin}</div><button onclick="delOperario(${i})" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">🗑</button></div>`).join('')||'<div class="empty">Sin operarios</div>';
+  el.innerHTML=DB.operarios.map((o,i)=>`<div class="list-item${editOpIdx===i?' editing':''}"><div class="li-meta"><b>${o.n}</b> · PIN ${o.pin}</div><div style="display:flex;gap:4px"><button onclick="editOperario(${i})" style="background:none;border:none;font-size:16px;cursor:pointer">✏️</button><button onclick="delOperario(${i})" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">🗑</button></div></div>`).join('')||'<div class="empty">Sin operarios</div>';
 }
-async function addOperario(){
+function editOperario(i){
+  const o=DB.operarios[i];if(!o)return;
+  editOpIdx=i;sv('op-nombre',o.n);sv('op-pin',o.pin);
+  document.getElementById('op-save-btn').textContent='✓ Guardar cambios';
+  document.getElementById('op-cancel-btn').style.display='';
+  renderOpsList();document.getElementById('op-nombre').focus();
+}
+async function saveOperario(){
   const n=gv('op-nombre').trim();const pin=gv('op-pin').trim();
   if(!n)return toast('Poné el nombre','warn');
   if(!/^\d{4}$/.test(pin))return toast('El PIN debe tener 4 dígitos','warn');
   if(pin===PIN_ADMIN)return toast('Ese PIN está reservado','warn');
-  if(DB.operarios.some(o=>o.pin===pin))return toast('Ya hay un operario con ese PIN','warn');
-  if(DB.operarios.some(o=>o.n.toLowerCase()===n.toLowerCase()))return toast('Ya existe ese operario','warn');
-  DB.operarios.push({n,pin});
-  sv('op-nombre','');sv('op-pin','');renderOpsList();renderOps();
-  await saveToCloud(false);toast('Operario agregado ✓');
+  if(DB.operarios.some((o,idx)=>idx!==editOpIdx&&o.pin===pin))return toast('Ya hay un operario con ese PIN','warn');
+  if(DB.operarios.some((o,idx)=>idx!==editOpIdx&&o.n.toLowerCase()===n.toLowerCase()))return toast('Ya existe ese operario','warn');
+  if(editOpIdx!==null){DB.operarios[editOpIdx]={n,pin};editOpIdx=null;}
+  else{DB.operarios.push({n,pin});}
+  resetOpForm();renderOpsList();renderOps();
+  await saveToCloud(false);toast('Operario guardado ✓');
 }
 async function delOperario(i){
   const o=DB.operarios[i];if(!o)return;
   if(!confirm('¿Borrar a "'+o.n+'"?'))return;
-  DB.operarios.splice(i,1);renderOpsList();renderOps();
+  DB.operarios.splice(i,1);if(editOpIdx===i)editOpIdx=null;resetOpForm();renderOpsList();renderOps();
   await saveToCloud(false);toast('Operario borrado');
 }
 
