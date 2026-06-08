@@ -198,6 +198,7 @@ td.mono{font-family:'DM Mono'}
   <div class="wrap">
     <div class="admin-bar hidden" id="admin-bar">
       <div class="at">🔧 Modo administrador — podés editar y borrar lo cargado</div>
+      <button onclick="openOps()">👷 Operarios</button>
       <button onclick="exportProduccion()">📊 Exportar producción (Excel)</button>
       <button onclick="borrarTodo()">🗑 Borrar pruebas</button>
     </div>
@@ -218,10 +219,7 @@ td.mono{font-family:'DM Mono'}
           <div><label>Kg consumidos</label><input type="number" id="f-kg" inputmode="decimal" placeholder="0"></div>
           <div><label>Metros</label><input type="number" id="f-metros" inputmode="decimal" placeholder="0"></div>
         </div>
-        <div class="row">
-          <div><label>Hora de carga</label><input type="time" id="f-hora"></div>
-          <div><label>Encargado del turno</label><input type="text" id="f-encargado" readonly></div>
-        </div>
+        <div class="row cols1"><div><label>Hora de carga</label><input type="time" id="f-hora"></div></div>
         <div class="card-title" style="margin-top:4px"><span class="step-n">3</span>Cajas y unidades</div>
         <div class="row">
           <div><label>Contador inicial</label><input type="number" id="f-cini" inputmode="numeric" placeholder="0" oninput="recalc()"></div>
@@ -335,6 +333,20 @@ td.mono{font-family:'DM Mono'}
   </div>
 </div>
 
+<div class="modal-ov" id="modal-ops">
+  <div class="modal">
+    <h3>Operarios</h3>
+    <p style="margin-top:-4px">Cada operario entra con su PIN de 4 dígitos. Quien ingresa queda como encargado.</p>
+    <div id="ops-list" style="margin-bottom:14px"></div>
+    <div class="row">
+      <div><label>Nombre</label><input type="text" id="op-nombre" placeholder="Nombre y apellido"></div>
+      <div><label>PIN (4 dígitos)</label><input type="number" id="op-pin" inputmode="numeric" placeholder="0000"></div>
+    </div>
+    <button class="btn btn-green" style="margin-top:6px" onclick="addOperario()">＋ Agregar operario</button>
+    <button class="btn btn-outline" style="margin-top:10px" onclick="closeModal('modal-ops')">Cerrar</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -355,10 +367,21 @@ const CAT={
   E910:{fam:'Ensaladera',bocas:6,golpes:22,peso:17, cajas:[100,300,440,500,880,1000]},
 };
 function objetivoTurno(prod,turno){const c=CAT[prod];if(!c||!turno)return 0;return Math.round(c.bocas*c.golpes*60*HORAS[turno]*FACTOR);}
-function cajasXPallet(prod,uxp){const c=CAT[prod];if(!c||c.fam==='Ensaladera')return null;if(['F40','F41','F43'].includes(prod))return uxp<=600?24:18;return uxp<=300?24:18;}
+const CAJAS_PALLET_ENS={
+  E900:{1000:24,300:36,440:30,100:72},
+  T900:{500:24,300:72,440:60,100:112},
+  E910:{1000:24,300:36,440:30,100:72},
+};
+function cajasXPallet(prod,uxp){
+  const c=CAT[prod];if(!c)return null;
+  if(c.fam==='Ensaladera'){const m=CAJAS_PALLET_ENS[prod];return (m&&m[uxp])?m[uxp]:null;}
+  if(['F40','F41','F43'].includes(prod))return uxp<=600?24:18;
+  return uxp<=300?24:18;
+}
 
 // Cada operario tiene su PIN. Quien ingresa con su PIN queda como ENCARGADO del turno.
-const OPERARIOS=[
+// El admin puede dar de alta nuevos operarios (se guardan en la nube + local).
+const OPERARIOS_DEFAULT=[
   {n:'Luna Gabriel',    pin:'1010'},
   {n:'Garbia Luis',     pin:'2020'},
   {n:'Vera Alan',       pin:'3030'},
@@ -369,7 +392,8 @@ const OPERARIOS=[
 const PIN_ADMIN='9090';
 
 // ════════ ESTADO ════════
-let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{}};
+let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},operarios:[]};
+DB.operarios=JSON.parse(localStorage.getItem('wf_termo_operarios')||'null')||OPERARIOS_DEFAULT.slice();
 let CFG={apiKey:'',binId:''};
 let sel={turno:null,prod:null,ops:[],encargado:null};
 let curUser=null;
@@ -400,13 +424,17 @@ async function loadFromCloud(){
     if(!res.ok)throw new Error('HTTP '+res.status);
     const r=(await res.json()).record||{};
     DB.bobinas=r.bobinas||[];DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};
+    DB.operarios=(r.operarios&&r.operarios.length)?r.operarios:DB.operarios;
+    localStorage.setItem('wf_termo_operarios',JSON.stringify(DB.operarios));
+    if(document.getElementById('op-chips'))renderOps();
     setSync('ok','Sincronizado');renderAll();
   }catch(e){setSync('err','Sin conexión');const l=localStorage.getItem('wf_termo_local');if(l){const d=JSON.parse(l);DB.bobinas=d.bobinas||[];DB.pallets=d.pallets||[];DB.cierres=d.cierres||[];DB.pedidos=d.pedidos||[];DB.stockConfig=d.stockConfig||{};renderAll();}}
 }
 async function saveToCloud(isNew){
   setSync('loading','Guardando...');
-  const payload={bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig};
+  const payload={bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,operarios:DB.operarios};
   localStorage.setItem('wf_termo_local',JSON.stringify(payload));
+  localStorage.setItem('wf_termo_operarios',JSON.stringify(DB.operarios));
   try{
     let res;
     if(isNew||!CFG.binId){
@@ -426,7 +454,7 @@ function pinDel(){pinBuf='';renderPin();document.getElementById('pin-error').tex
 function renderPin(){for(let i=0;i<4;i++)document.getElementById('pd'+i).className='pin-dot'+(i<pinBuf.length?' filled':'');}
 function checkPin(){
   if(pinBuf===PIN_ADMIN){ admin=true; curUser=null; enterApp(); return; }
-  const op=OPERARIOS.find(o=>o.pin===pinBuf);
+  const op=DB.operarios.find(o=>o.pin===pinBuf);
   if(op){
     admin=false; curUser=op;
     sel.encargado=op.n;
@@ -450,7 +478,7 @@ function logout(){location.reload();}
 function hhmmNow(){const d=new Date();return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');}
 function renderOps(){
   const oc=document.getElementById('op-chips');if(!oc)return;
-  oc.innerHTML='<span class="ops-lbl">Operarios del turno</span>'+OPERARIOS.map(o=>{
+  oc.innerHTML='<span class="ops-lbl">Operarios del turno</span>'+DB.operarios.map(o=>{
     const on=sel.ops.includes(o.n), lead=sel.encargado===o.n;
     return `<div class="op-chip${on?' sel':''}${lead?' lead':''}" data-op="${o.n}" onclick="toggleOp(this,'${o.n.replace(/'/g,"\\'")}')">${lead?'★ ':''}${o.n}${lead?' · encargado':''}</div>`;
   }).join('');
@@ -458,7 +486,6 @@ function renderOps(){
 function init(){
   sv('f-fecha',new Date().toISOString().split('T')[0]);
   sv('f-hora',hhmmNow());
-  const fe=document.getElementById('f-encargado');if(fe)fe.value=sel.encargado||(admin?'(admin)':'');
   renderOps();
   document.getElementById('prod-zone').innerHTML=prodGridHTML();
   // poblar selects de edición admin
@@ -664,6 +691,30 @@ async function borrarTodo(){
   if(!confirm('Esto borra TODAS las bobinas, pallets y cierres. ¿Seguro?'))return;
   if(!confirm('Última confirmación: se borra todo lo cargado. ¿Continuar?'))return;
   DB.bobinas=[];DB.pallets=[];DB.cierres=[];await saveToCloud(false);toast('Datos borrados');
+}
+
+// ════════ ADMIN: operarios ════════
+function openOps(){renderOpsList();sv('op-nombre','');sv('op-pin','');document.getElementById('modal-ops').classList.add('show');}
+function renderOpsList(){
+  const el=document.getElementById('ops-list');if(!el)return;
+  el.innerHTML=DB.operarios.map((o,i)=>`<div class="list-item"><div class="li-meta"><b>${o.n}</b> · PIN ${o.pin}</div><button onclick="delOperario(${i})" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">🗑</button></div>`).join('')||'<div class="empty">Sin operarios</div>';
+}
+async function addOperario(){
+  const n=gv('op-nombre').trim();const pin=gv('op-pin').trim();
+  if(!n)return toast('Poné el nombre','warn');
+  if(!/^\d{4}$/.test(pin))return toast('El PIN debe tener 4 dígitos','warn');
+  if(pin===PIN_ADMIN)return toast('Ese PIN está reservado','warn');
+  if(DB.operarios.some(o=>o.pin===pin))return toast('Ya hay un operario con ese PIN','warn');
+  if(DB.operarios.some(o=>o.n.toLowerCase()===n.toLowerCase()))return toast('Ya existe ese operario','warn');
+  DB.operarios.push({n,pin});
+  sv('op-nombre','');sv('op-pin','');renderOpsList();renderOps();
+  await saveToCloud(false);toast('Operario agregado ✓');
+}
+async function delOperario(i){
+  const o=DB.operarios[i];if(!o)return;
+  if(!confirm('¿Borrar a "'+o.n+'"?'))return;
+  DB.operarios.splice(i,1);renderOpsList();renderOps();
+  await saveToCloud(false);toast('Operario borrado');
 }
 
 // ════════ CONFIG / TOAST ════════

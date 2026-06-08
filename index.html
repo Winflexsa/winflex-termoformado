@@ -150,6 +150,25 @@ tr.cli-row.open{background:var(--surf2)}
 .c-canc{background:var(--surf3);color:var(--text2)}
 .prodtag{font-family:'DM Mono';font-weight:700;font-size:12px;padding:2px 8px;border-radius:5px;background:var(--cl-l);color:var(--cl)}
 .prodtag.ens{background:var(--en-l);color:var(--green-dd)}
+.crono-table{width:100%;border-collapse:separate;border-spacing:0;min-width:780px}
+.crono-table th,.crono-table td{border:1px solid var(--border2)}
+.crono-th{background:var(--surf2);font-size:12px;text-transform:capitalize;padding:7px 6px;text-align:center;color:var(--text2);font-weight:700;position:static}
+.crono-th-t{background:var(--surf2);width:60px;position:static}
+.crono-th-d{font-weight:400;color:var(--text3);font-size:11px}
+.crono-hoy{background:var(--green-l)!important}
+.crono-turno{text-align:center;background:var(--surf);vertical-align:middle;width:60px}
+.crono-cell{vertical-align:top;padding:6px;min-width:108px;height:74px}
+.crono-chip{background:var(--cl-l);border-left:3px solid var(--cl);border-radius:6px;padding:5px 7px;margin-bottom:5px;cursor:pointer;font-size:12px;line-height:1.25}
+.crono-chip.ens{background:var(--en-l);border-left-color:var(--en)}
+.crono-chip:hover{filter:brightness(.97)}
+.cc-top{font-family:'DM Mono'}
+.cc-ops{color:var(--text2);font-size:11px;margin-top:2px}
+.cc-obs{color:var(--text3);font-size:11px;font-style:italic;margin-top:2px}
+.crono-add{display:block;width:100%;border:1px dashed var(--border2);background:none;color:var(--text3);border-radius:6px;padding:3px;cursor:pointer;font-size:14px}
+.crono-add:hover{border-color:var(--green);color:var(--green-d)}
+.cr-ops{display:flex;flex-wrap:wrap;gap:7px}
+.op-chip-sm{background:var(--surf2);border:1.5px solid var(--border2);border-radius:16px;padding:5px 11px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2)}
+.op-chip-sm.sel{background:var(--green-l);border-color:var(--green);color:var(--green-d)}
 
 .tg{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
 .tg-ok{background:var(--green-l);color:var(--green-d)}
@@ -267,6 +286,7 @@ tr.cli-row.open{background:var(--surf2)}
       <div class="nav-item active" data-pg="dashboard" onclick="goTo('dashboard')"><span class="ic">📊</span>Dashboard del área</div>
       <div class="nav-item" data-pg="produccion" onclick="goTo('produccion')"><span class="ic">🏭</span>Producción</div>
       <div class="nav-item" data-pg="registro" onclick="goTo('registro')"><span class="ic">➕</span>Registrar prod.</div>
+      <div class="nav-item" data-pg="cronograma" onclick="goTo('cronograma')"><span class="ic">🗓️</span>Cronograma</div>
       <div class="nav-sec">Análisis</div>
       <div class="nav-item" data-pg="anual" onclick="goTo('anual')"><span class="ic">📅</span>Resumen anual</div>
       <div class="nav-item" data-pg="graficos" onclick="goTo('graficos')"><span class="ic">📈</span>Gráficos</div>
@@ -325,7 +345,8 @@ tr.cli-row.open{background:var(--surf2)}
     <!-- STOCK Y PALLETS -->
     <div class="page" id="pg-stock">
       <div class="page-head"><div><div class="page-title">Stock y pallets</div><div class="page-sub">Inicial + Producido − Vendido − Rechazado</div></div><div class="head-act"><div class="seg fam-seg-ctl"><button data-f="Todos" class="on" onclick="setFam('Todos')">Todos</button><button data-f="Clamshell" onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera" onclick="setFam('Ensaladera')">Ensaladera</button></div><button class="btn btn-xls btn-sm" onclick="exportExcel('stock')">⬇ Excel</button><button class="btn btn-greend btn-sm" onclick="openEstablecerStock()">📋 Establecer stock real</button><button class="btn btn-outline btn-sm" onclick="openAjuste()">🔧 Ajuste de inventario</button><button class="btn btn-outline btn-sm" onclick="openStock()">✏️ Stock inicial / rechazos</button></div></div>
-      <div class="card"><div class="card-title">Stock por producto</div><div class="tbl-wrap"><table><thead><tr><th>Producto</th><th>Inicial</th><th>Producido</th><th>Vendido</th><th>Rechazado</th><th>Ajustes</th><th>Stock actual</th><th>En pedido</th></tr></thead><tbody id="stock-tbody"></tbody></table></div></div>
+      <div class="kpis" id="stock-kpis" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="card"><div class="card-title">Stock por producto</div><div class="tbl-wrap"><table><thead><tr><th>Producto</th><th>Inicial</th><th>Producido</th><th>Vendido</th><th>Rechazado</th><th>Ajustes</th><th>Stock (uds)</th><th>Stock (cajas)</th><th>Stock (pallets)</th><th>En pedido</th></tr></thead><tbody id="stock-tbody"></tbody></table></div></div>
       <div class="card" id="ajustes-card"><div class="card-title">🔧 Historial de ajustes de inventario</div><div id="ajustes-list"></div></div>
       <div class="card">
         <div class="card-title">📦 Pallets (información adicional)</div>
@@ -417,6 +438,23 @@ tr.cli-row.open{background:var(--surf2)}
       <div class="kpis" id="cli-kpis" style="grid-template-columns:repeat(4,1fr)"></div>
       <div class="filters" style="align-items:center"><input class="ped-search" id="cli-q" placeholder="🔎 Buscar cliente…" oninput="renderClientes()"></div>
       <div class="card" style="padding:0;overflow:hidden"><div class="tbl-wrap" style="border:none"><table><thead><tr><th>Cliente</th><th>Vendedor</th><th class="num">Pedidos</th><th class="num">Uds pedidas</th><th class="num">Entregado</th><th class="num">Pendiente</th><th></th></tr></thead><tbody id="cli-tbody"></tbody></table></div></div>
+    </div>
+
+    <!-- CRONOGRAMA -->
+    <div class="page" id="pg-cronograma">
+      <div class="page-head"><div><div class="page-title">Cronograma</div><div class="page-sub">Planificación semanal de producción · por día, turno, producto y operarios</div></div><div class="head-act"><div class="seg fam-seg-ctl"><button data-f="Todos" class="on" onclick="setFam('Todos')">Todos</button><button data-f="Clamshell" onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera" onclick="setFam('Ensaladera')">Ensaladera</button></div></div></div>
+      <div class="kpis" id="crono-kpis" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-outline btn-sm" onclick="cronoShift(-1)">‹ Semana</button>
+            <button class="btn btn-outline btn-sm" onclick="cronoHoy()">Hoy</button>
+            <button class="btn btn-outline btn-sm" onclick="cronoShift(1)">Semana ›</button>
+          </div>
+          <div class="card-title" id="crono-label" style="margin:0"></div>
+        </div>
+        <div class="tbl-wrap" id="crono-grid" style="overflow-x:auto"></div>
+      </div>
     </div>
 
     <!-- DATOS -->
@@ -521,6 +559,16 @@ tr.cli-row.open{background:var(--surf2)}
 </div>
 
 
+<div class="modal-ov" id="modal-crono">
+  <div class="modal"><h3 id="crono-title">Planificar producción</h3>
+    <div class="frow"><div class="field"><label>Fecha</label><input type="date" id="cr-fecha"></div><div class="field"><label>Turno</label><select id="cr-turno"><option>M1</option><option>M2</option><option>N</option></select></div></div>
+    <div class="frow"><div class="field"><label>Producto</label><select id="cr-prod"></select></div><div class="field"><label>Meta de unidades (opcional)</label><input type="number" id="cr-meta" placeholder="0"></div></div>
+    <div class="frow c1"><div class="field"><label>Operarios asignados</label><div id="cr-ops" class="cr-ops"></div></div></div>
+    <div class="frow c1"><div class="field"><label>Observaciones</label><textarea id="cr-obs" rows="2" placeholder="Opcional…"></textarea></div></div>
+    <div class="modal-foot"><button class="linkact del" id="cr-del" style="margin-right:auto" onclick="delCrono()">🗑 Eliminar</button><button class="btn btn-outline" onclick="closeModal('modal-crono')">Cancelar</button><button class="btn btn-green" onclick="saveCrono()">Guardar</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toastEl"></div>
 
 <script>
@@ -549,7 +597,7 @@ const CLIENTES=['Apici','Arandalia','Arandeira','Berries del Sol','Alif Agro','B
 const USERS={'1205':{n:'Matías',r:'Administrador'},'3080':{n:'Jonathan',r:'Ingeniería'},'0035':{n:'Agustín',r:'Planta'},'0104':{n:'Mirta',r:'Administración'},'9090':{n:'Admin',r:'Administrador'}};
 
 // ════════ ESTADO ════════
-let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},ajustes:[],clientes:[]};
+let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},ajustes:[],clientes:[],cronograma:[],operarios:[]};
 let CFG={apiKey:'',binId:''};
 let curUser=null, fltPedido='activos', editPedId=null, famFilter='Todos', dirty=false;
 const gv=id=>document.getElementById(id).value;
@@ -574,13 +622,13 @@ async function loadFromCloud(force){
     const cloudN=(r.bobinas||[]).length+(r.pedidos||[]).length;
     const memN=DB.bobinas.length+DB.pedidos.length;
     if(cloudN===0&&memN>0&&!force){if(!confirm('La nube está vacía pero este equipo tiene '+memN+' registros. ¿Sobrescribir con lo vacío? (Cancelá para conservar lo de este equipo)')){setSync('ok','Se conservó lo local');return;}}
-    DB.bobinas=r.bobinas||[];DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};DB.ajustes=r.ajustes||[];DB.clientes=(r.clientes&&r.clientes.length)?r.clientes:seedClientes();
+    DB.bobinas=r.bobinas||[];DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};DB.ajustes=r.ajustes||[];DB.clientes=(r.clientes&&r.clientes.length)?r.clientes:seedClientes();DB.cronograma=r.cronograma||[];DB.operarios=r.operarios||[];
     dirty=false;setSync('ok','Sincronizado');refreshClienteDatalist();renderAll();
   }catch(e){setSync('err','Sin conexión');const l=localStorage.getItem('wf_termo_local');if(l){const d=JSON.parse(l);Object.assign(DB,d);renderAll();}}
 }
 async function saveToCloud(){
   setSync('loading','Guardando...');
-  const payload={bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,ajustes:DB.ajustes,clientes:DB.clientes};
+  const payload={bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,ajustes:DB.ajustes,clientes:DB.clientes,cronograma:DB.cronograma,operarios:DB.operarios};
   localStorage.setItem('wf_termo_local',JSON.stringify(payload));
   dirty=true;
   if(!CFG.apiKey||!CFG.binId){setSync('err','Sin bin configurado');toast('Configurá la sincronización primero','warn');return false;}
@@ -628,11 +676,35 @@ function enPedido(p){return DB.pedidos.filter(x=>x.prod===p&&(x.estado==='Pendie
 function stockCfg(p){return DB.stockConfig[p]||{ini:0,rech:0};}
 function ajustesProd(p){return (DB.ajustes||[]).filter(a=>a.prod===p).reduce((s,a)=>s+(a.cantidad||0),0);}
 function stockActual(p){const c=stockCfg(p);return (c.ini||0)+producido(p)-vendido(p)-(c.rech||0)+ajustesProd(p);}
+// ── Cajas por pallet (clamshell por regla; ensaladera por tabla provista) ──
+const CAJAS_PALLET_ENS={
+  E900:{1000:24,300:36,440:30,100:72},
+  T900:{500:24,300:72,440:60,100:112},
+  E910:{1000:24,300:36,440:30,100:72},
+};
+function cajasXPallet(prod,uxp){
+  const c=CAT[prod];if(!c)return null;
+  if(c.fam==='Ensaladera'){const m=CAJAS_PALLET_ENS[prod];return (m&&m[uxp])?m[uxp]:null;}
+  if(['F40','F41','F43'].includes(prod))return uxp<=600?24:18;
+  return uxp<=300?24:18;
+}
+// u/caja promedio real (según lo producido); fallback al menor tamaño del catálogo
+function uxpProm(p){const u=producido(p),c=cajasProd(p);if(c>0)return u/c;return (CAT[p]&&CAT[p].cajas[0])||1;}
+// cajas/pallet promedio: usa los pallets reales si hay; sino estima por la tabla con el uxp representativo
+function cajasXPalletProm(p){
+  const pal=DB.pallets.filter(x=>x.prod===p);
+  if(pal.length){const tc=pal.reduce((s,x)=>s+(x.cajas||0),0);if(tc>0)return tc/pal.length;}
+  const ux=uxpProm(p),sizes=(CAT[p]&&CAT[p].cajas)||[];let best=sizes[0],bd=Infinity;
+  sizes.forEach(s=>{const d=Math.abs(s-ux);if(d<bd){bd=d;best=s;}});
+  return cajasXPallet(p,best)||0;
+}
+function stockCajasP(p){const u=uxpProm(p);return u>0?Math.round(stockActual(p)/u):0;}
+function stockPalletsP(p){const cpp=cajasXPalletProm(p);return cpp>0?Math.round(stockCajasP(p)/cpp*10)/10:0;}
 function eficProm(p){const g={};DB.bobinas.filter(b=>b.prod===p).forEach(b=>{const k=b.fecha+'|'+b.turno;g[k]=(g[k]||0)+(b.uds||0);});const vs=[];Object.keys(g).forEach(k=>{const t=k.split('|')[1];const o=objetivoTurno(p,t);if(o>0)vs.push(g[k]/o*100);});return vs.length?Math.round(vs.reduce((a,v)=>a+v,0)/vs.length):null;}
 function turnosProd(p){const s=new Set();DB.bobinas.filter(b=>b.prod===p).forEach(b=>s.add(b.fecha+'|'+b.turno));return s.size;}
 
 // ════════ RENDER ════════
-function renderAll(){renderDashboard();renderProduccion();renderStock();renderPallets();renderPedidos();renderDatos();renderRegistro();renderAnual();renderClientes();if(document.getElementById('pg-graficos').classList.contains('active'))renderGraficos();}
+function renderAll(){renderDashboard();renderProduccion();renderStock();renderPallets();renderPedidos();renderDatos();renderRegistro();renderAnual();renderClientes();renderCronograma();if(document.getElementById('pg-graficos').classList.contains('active'))renderGraficos();}
 
 function renderDashboard(){
   const prods=PRODS.filter(famOk);
@@ -657,9 +729,9 @@ function renderDashboard(){
   else{const pc=Math.round(fam.Clamshell/tot*100),pe=100-pc;mixEl.innerHTML=`<div class="fam-mix">${fam.Clamshell>0?`<div class="fam-seg" style="background:var(--cl);width:${pc}%">${pc}%</div>`:''}${fam.Ensaladera>0?`<div class="fam-seg" style="background:var(--en);width:${pe}%">${pe}%</div>`:''}</div><div style="display:flex;gap:18px;font-size:13px;margin-top:8px"><div><span style="color:var(--cl);font-weight:700">■</span> Clamshell · <b class="mono">${fmt(fam.Clamshell)}</b> u</div><div><span style="color:var(--en);font-weight:700">■</span> Ensaladera · <b class="mono">${fmt(fam.Ensaladera)}</b> u</div></div>`;}
   // stock disponible (sólo con unidades)
   const stkEl=document.getElementById('dash-stock');
-  const stk=prods.map(p=>({p,sa:stockActual(p),ep:enPedido(p)})).filter(x=>x.sa>0).sort((a,b)=>b.sa-a.sa);
+  const stk=prods.map(p=>({p,sa:stockActual(p),ep:enPedido(p),sc:stockCajasP(p),sp:stockPalletsP(p)})).filter(x=>x.sa>0).sort((a,b)=>b.sa-a.sa);
   if(!stk.length)stkEl.innerHTML='<div class="empty">No hay productos con stock disponible</div>';
-  else{const maxS=Math.max(...stk.map(x=>x.sa));stkEl.innerHTML=stk.map(x=>`<div class="stk-row"><span class="prodtag ${CAT[x.p].fam==='Ensaladera'?'ens':''}">${x.p}</span><div class="stk-bar"><div class="stk-fill" style="width:${Math.round(x.sa/maxS*100)}%;background:${famColor(CAT[x.p].fam)}"></div></div><span class="stk-val">${fmt(x.sa)}</span>${x.ep>0?`<span class="stk-ep">⏳ ${fmt(x.ep)} en pedido</span>`:'<span class="stk-ep"></span>'}</div>`).join('')+`<div style="display:flex;justify-content:space-between;padding-top:10px;margin-top:4px;border-top:2px solid var(--border2);font-size:13px;font-weight:700"><span>Total disponible</span><span class="mono">${fmt(stk.reduce((s,x)=>s+x.sa,0))} u</span></div>`;}
+  else{const maxS=Math.max(...stk.map(x=>x.sa));stkEl.innerHTML=stk.map(x=>`<div class="stk-row"><span class="prodtag ${CAT[x.p].fam==='Ensaladera'?'ens':''}">${x.p}</span><div class="stk-bar"><div class="stk-fill" style="width:${Math.round(x.sa/maxS*100)}%;background:${famColor(CAT[x.p].fam)}"></div></div><span class="stk-val">${fmt(x.sa)}</span><span class="stk-ep" style="color:var(--text3)">${fmt(x.sc)} cajas · ${x.sp} pallets${x.ep>0?` · ⏳ ${fmt(x.ep)} en pedido`:''}</span></div>`).join('')+`<div style="display:flex;justify-content:space-between;padding-top:10px;margin-top:4px;border-top:2px solid var(--border2);font-size:13px;font-weight:700"><span>Total disponible</span><span class="mono">${fmt(stk.reduce((s,x)=>s+x.sa,0))} u · ${fmt(stk.reduce((s,x)=>s+x.sc,0))} cajas · ${Math.round(stk.reduce((s,x)=>s+x.sp,0)*10)/10} pallets</span></div>`;}
   // mejores y peores turnos (compacto, colapsable)
   const gtp={};bobs.forEach(b=>{const k=b.fecha+'|'+b.turno+'|'+b.prod;gtp[k]=(gtp[k]||0)+(b.uds||0);});
   const gt={};Object.keys(gtp).forEach(k=>{const[f,t,p]=k.split('|');const kk=f+'|'+t;(gt[kk]=gt[kk]||{uds:0,obj:0,prods:new Set()});gt[kk].uds+=gtp[k];gt[kk].obj+=objetivoTurno(p,t);gt[kk].prods.add(p);});
@@ -716,7 +788,16 @@ function renderProduccion(){
 function toggleDia(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('day-detail'))d.style.display=op?'table-row':'none';}
 
 function renderStock(){
-  document.getElementById('stock-tbody').innerHTML=PRODS.filter(famOk).map(p=>{const c=stockCfg(p);const pr=producido(p),ve=vendido(p),aj=ajustesProd(p),sa=stockActual(p),ep=enPedido(p);return `<tr><td><span class="prodtag ${CAT[p].fam==='Ensaladera'?'ens':''}">${p}</span></td><td class="mono">${fmt(c.ini)}</td><td class="mono">${fmt(pr)}</td><td class="mono">${fmt(ve)}</td><td class="mono">${fmt(c.rech)}</td><td class="mono" style="color:${aj>0?'var(--ok)':aj<0?'var(--bad)':'var(--text3)'}">${aj>0?'+':''}${fmt(aj)}</td><td class="mono" style="font-weight:700;color:${sa<0?'var(--bad)':'var(--text)'}">${fmt(sa)}</td><td class="mono">${fmt(ep)}</td></tr>`;}).join('')||'<tr><td colspan="8" class="empty">Sin productos para esta familia</td></tr>';
+  const PF=PRODS.filter(famOk);
+  document.getElementById('stock-tbody').innerHTML=PF.map(p=>{const c=stockCfg(p);const pr=producido(p),ve=vendido(p),aj=ajustesProd(p),sa=stockActual(p),sc=stockCajasP(p),sp=stockPalletsP(p),ep=enPedido(p);return `<tr><td><span class="prodtag ${CAT[p].fam==='Ensaladera'?'ens':''}">${p}</span></td><td class="mono">${fmt(c.ini)}</td><td class="mono">${fmt(pr)}</td><td class="mono">${fmt(ve)}</td><td class="mono">${fmt(c.rech)}</td><td class="mono" style="color:${aj>0?'var(--ok)':aj<0?'var(--bad)':'var(--text3)'}">${aj>0?'+':''}${fmt(aj)}</td><td class="mono" style="font-weight:700;color:${sa<0?'var(--bad)':'var(--text)'}">${fmt(sa)}</td><td class="mono">${fmt(sc)}</td><td class="mono">${sp}</td><td class="mono">${fmt(ep)}</td></tr>`;}).join('')||'<tr><td colspan="10" class="empty">Sin productos para esta familia</td></tr>';
+  // totales (sólo stock positivo cuenta para cajas/pallets equivalentes)
+  const totU=PF.reduce((s,p)=>s+stockActual(p),0);
+  const totC=PF.reduce((s,p)=>s+stockCajasP(p),0);
+  const totP=Math.round(PF.reduce((s,p)=>s+stockPalletsP(p),0)*10)/10;
+  document.getElementById('stock-kpis').innerHTML=`
+    <div class="kpi"><div class="v">${fmt(totU)}</div><div class="l">Stock total (unidades)</div></div>
+    <div class="kpi"><div class="v">${fmt(totC)}</div><div class="l">Stock total (cajas)</div></div>
+    <div class="kpi"><div class="v">${totP}</div><div class="l">Stock total (pallets)</div></div>`;
   const ajs=(DB.ajustes||[]).filter(a=>famOk(a.prod)).slice().sort((a,b)=>(b.id||0)-(a.id||0));
   document.getElementById('ajustes-list').innerHTML=ajs.length?`<div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Motivo</th><th></th></tr></thead><tbody>${ajs.map(a=>`<tr><td>${(a.fecha||'').slice(5)||'—'}</td><td><span class="prodtag ${CAT[a.prod]?.fam==='Ensaladera'?'ens':''}">${a.prod}</span></td><td class="mono" style="font-weight:700;color:${a.cantidad>0?'var(--ok)':'var(--bad)'}">${a.cantidad>0?'+':''}${fmt(a.cantidad)}</td><td style="white-space:normal;font-size:13px">${a.motivo||'—'}</td><td class="acts"><button class="linkact del" onclick="delAjuste('${a.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Sin ajustes registrados. Usá "Ajuste de inventario" o "Establecer stock real" para corregir el stock contado en planta.</div>';
 }
@@ -1140,6 +1221,63 @@ async function saveCliente(){
   closeModal('modal-cliente');refreshClienteDatalist();const ok=await saveToCloud();if(ok)toast('Cliente guardado ✓');
 }
 async function delCliente(id){const c=DB.clientes.find(x=>x.id===id);if(!c)return;const st=clienteStats(c.nombre);if(st.n>0){if(!confirm('"'+c.nombre+'" tiene '+st.n+' pedido(s) asociados. Se borra el cliente de la lista pero los pedidos quedan. ¿Continuar?'))return;}else{if(!confirm('¿Borrar a "'+c.nombre+'"?'))return;}DB.clientes=DB.clientes.filter(x=>x.id!==id);closeModal('modal-cliente');refreshClienteDatalist();const ok=await saveToCloud();if(ok)toast('Cliente borrado');}
+
+// ════════ CRONOGRAMA (planificación semanal) ════════
+const TURNOS_CR=['M1','M2','N'];
+let cronoMonday=null, editCronoId=null, cronoOps=[];
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function mondayStr(d){const x=new Date(d);x.setHours(0,0,0,0);const wd=(x.getDay()+6)%7;x.setDate(x.getDate()-wd);return ymd(x);}
+function cronoInit(){if(!cronoMonday)cronoMonday=mondayStr(new Date());}
+function cronoShift(n){cronoInit();const d=new Date(cronoMonday+'T00:00');d.setDate(d.getDate()+n*7);cronoMonday=ymd(d);renderCronograma();}
+function cronoHoy(){cronoMonday=mondayStr(new Date());renderCronograma();}
+function cronoDias(){cronoInit();const base=new Date(cronoMonday+'T00:00');const out=[];for(let i=0;i<7;i++){const d=new Date(base);d.setDate(d.getDate()+i);out.push(ymd(d));}return out;}
+function cronoOperarios(){return (DB.operarios&&DB.operarios.length)?DB.operarios.map(o=>o.n):['Luna Gabriel','Garbia Luis','Vera Alan','Rodriguez Alan','Zayas Antonio','Vera Juan'];}
+function renderCronograma(){
+  if(!document.getElementById('crono-grid'))return;
+  cronoInit();
+  const dias=cronoDias();
+  const slots=(DB.cronograma||[]).filter(s=>famOk(s.prod));
+  const wk=slots.filter(s=>dias.includes(s.fecha));
+  const meta=wk.reduce((a,s)=>a+(s.meta||0),0);
+  const prodset=new Set(wk.map(s=>s.prod));
+  document.getElementById('crono-kpis').innerHTML=`
+    <div class="kpi"><div class="v">${fmt(wk.length)}</div><div class="l">Asignaciones esta semana</div></div>
+    <div class="kpi"><div class="v">${fmt(meta)}</div><div class="l">Meta de unidades</div></div>
+    <div class="kpi"><div class="v">${fmt(prodset.size)}</div><div class="l">Productos planificados</div></div>`;
+  const d0=new Date(dias[0]+'T00:00'),d6=new Date(dias[6]+'T00:00');
+  document.getElementById('crono-label').textContent='Semana del '+d0.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' al '+d6.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const hoy=ymd(new Date());
+  const head='<tr><th class="crono-th-t">Turno</th>'+dias.map(f=>{const dd=new Date(f+'T00:00');return `<th class="crono-th${f===hoy?' crono-hoy':''}">${dd.toLocaleDateString('es-AR',{weekday:'short'})}<div class="crono-th-d">${dd.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})}</div></th>`;}).join('')+'</tr>';
+  const body=TURNOS_CR.map(t=>'<tr><td class="crono-turno"><span class="turno-pill">'+t+'</span></td>'+dias.map(f=>{
+    const cell=slots.filter(s=>s.fecha===f&&s.turno===t).sort((a,b)=>(a.prod||'').localeCompare(b.prod||''));
+    const chips=cell.map(s=>{const ens=CAT[s.prod]&&CAT[s.prod].fam==='Ensaladera';return `<div class="crono-chip${ens?' ens':''}" onclick="openCrono('${s.id}')"><div class="cc-top"><b>${s.prod}</b>${s.meta?` · ${fmt(s.meta)}u`:''}</div>${(s.operarios&&s.operarios.length)?`<div class="cc-ops">${s.operarios.join(', ')}</div>`:''}${s.obs?`<div class="cc-obs">${s.obs}</div>`:''}</div>`;}).join('');
+    return `<td class="crono-cell${f===hoy?' crono-hoy':''}">${chips}<button class="crono-add" onclick="openCrono(null,'${f}','${t}')">＋</button></td>`;
+  }).join('')+'</tr>').join('');
+  document.getElementById('crono-grid').innerHTML='<table class="crono-table">'+head+body+'</table>';
+}
+function renderCrOps(){const el=document.getElementById('cr-ops');if(!el)return;const ops=cronoOperarios();el.innerHTML=ops.length?ops.map(n=>`<div class="op-chip-sm${cronoOps.includes(n)?' sel':''}" onclick="toggleCrOp('${n.replace(/'/g,"\\'")}')">${n}</div>`).join(''):'<span style="color:var(--text3);font-size:13px">Todavía no hay operarios cargados (se dan de alta desde la tablet).</span>';}
+function toggleCrOp(n){if(cronoOps.includes(n))cronoOps=cronoOps.filter(x=>x!==n);else cronoOps.push(n);renderCrOps();}
+function openCrono(id,fecha,turno){
+  editCronoId=id||null;cronoOps=[];
+  const sel=document.getElementById('cr-prod');const pf=PRODS.filter(famOk);sel.innerHTML=(pf.length?pf:PRODS).map(p=>`<option value="${p}">${p}</option>`).join('');
+  if(id){const s=(DB.cronograma||[]).find(x=>x.id===id);if(!s)return;document.getElementById('crono-title').textContent='Editar asignación';sv('cr-fecha',s.fecha);sv('cr-turno',s.turno);sv('cr-prod',s.prod);sv('cr-meta',s.meta||'');sv('cr-obs',s.obs||'');cronoOps=(s.operarios||[]).slice();document.getElementById('cr-del').style.display='';}
+  else{document.getElementById('crono-title').textContent='Planificar producción';sv('cr-fecha',fecha||ymd(new Date()));sv('cr-turno',turno||'M1');sv('cr-meta','');sv('cr-obs','');document.getElementById('cr-del').style.display='none';}
+  renderCrOps();
+  document.getElementById('modal-crono').classList.add('show');
+}
+async function saveCrono(){
+  const fecha=gv('cr-fecha'),turno=gv('cr-turno'),prod=gv('cr-prod');
+  if(!fecha)return toast('Elegí la fecha','warn');if(!prod)return toast('Elegí el producto','warn');
+  const o={fecha,turno,prod,meta:parseInt(gv('cr-meta'))||0,operarios:cronoOps.slice(),obs:gv('cr-obs').trim()};
+  if(editCronoId){const s=DB.cronograma.find(x=>x.id===editCronoId);if(s)Object.assign(s,o);}
+  else{o.id='cr'+Date.now()+'_'+Math.random().toString(36).slice(2,5);if(!DB.cronograma)DB.cronograma=[];DB.cronograma.push(o);}
+  closeModal('modal-crono');renderCronograma();const ok=await saveToCloud();if(ok)toast('Cronograma guardado ✓');
+}
+async function delCrono(){
+  if(!editCronoId)return;if(!confirm('¿Eliminar esta asignación del cronograma?'))return;
+  DB.cronograma=(DB.cronograma||[]).filter(x=>x.id!==editCronoId);
+  closeModal('modal-crono');renderCronograma();const ok=await saveToCloud();if(ok)toast('Asignación eliminada');
+}
 
 // ════════ GRÁFICOS (Chart.js) ════════
 function loadChartJS(){return new Promise((resolve,reject)=>{
