@@ -680,7 +680,8 @@ const USERS={'1205':{n:'Matías',r:'Administrador'},'3080':{n:'Jonathan',r:'Inge
 // ════════ ESTADO ════════
 let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},ajustes:[],clientes:[],cronograma:[],operarios:[]};
 let CFG={apiKey:'',binId:''};
-let curUser=null, fltPedido='activos', editPedId=null, famFilter='Todos', dirty=false;
+let curUser=null, editPedId=null, famFilter='Todos', dirty=false, prodDirty=false;
+function mergeById(localArr,cloudArr){const m=new Map();(cloudArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});(localArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});return [...m.values()];}
 const gv=id=>document.getElementById(id).value;
 const sv=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
 const fmt=n=>(Math.round(n)||0).toLocaleString('es-AR');
@@ -709,14 +710,23 @@ async function loadFromCloud(force){
 }
 async function saveToCloud(){
   setSync('loading','Guardando...');
-  const payload={bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,ajustes:DB.ajustes,clientes:DB.clientes,cronograma:DB.cronograma,operarios:DB.operarios};
-  localStorage.setItem('wf_termo_local',JSON.stringify(payload));
+  localStorage.setItem('wf_termo_local',JSON.stringify({bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,ajustes:DB.ajustes,clientes:DB.clientes,cronograma:DB.cronograma,operarios:DB.operarios}));
   dirty=true;
   if(!CFG.apiKey||!CFG.binId){setSync('err','Sin bin configurado');toast('Configurá la sincronización primero','warn');return false;}
   try{
+    // releer lo último para no pisar la producción que cargan los operarios desde la tablet
+    let latest={};
+    try{const g=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});if(g.ok)latest=(await g.json()).record||{};}catch(_){}
+    const pick=(k)=>latest[k]!==undefined?latest[k]:DB[k];
+    const payload={
+      pedidos:DB.pedidos,clientes:DB.clientes,ajustes:DB.ajustes,cronograma:DB.cronograma,stockConfig:DB.stockConfig,
+      pallets:pick('pallets'),cierres:pick('cierres'),operarios:pick('operarios'),
+      bobinas: prodDirty ? mergeById(DB.bobinas,latest.bobinas) : pick('bobinas')
+    };
     const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey},body:JSON.stringify(payload)});
     if(!res.ok)throw new Error('HTTP '+res.status);
-    dirty=false;setSync('ok','Guardado');renderAll();return true;
+    DB.bobinas=payload.bobinas;DB.pallets=payload.pallets;DB.cierres=payload.cierres;DB.operarios=payload.operarios;
+    prodDirty=false;dirty=false;setSync('ok','Guardado');renderAll();return true;
   }catch(e){setSync('err','SIN GUARDAR en nube');toast('No se pudo guardar en la nube ('+e.message+'). Quedó en este equipo — reintentá con ↻ Actualizar o revisá la conexión.','err');renderAll();return false;}
 }
 
@@ -1108,7 +1118,7 @@ async function saveStock(){PRODS.forEach(p=>{DB.stockConfig[p]={ini:parseInt(gv(
 // ════════ IMPORT ENSALADERAS ════════
 function openImport(){document.getElementById('imp-result').textContent='';document.getElementById('modal-import').classList.add('show');}
 function mapEstado(e){return e==='Entregado parcial'?'Parcial':(e||'Pendiente');}
-async function importEnsaladeras(){
+async function importEnsaladeras(){prodDirty=true;
   const binEns=gv('imp-bin').trim();
   if(!CFG.apiKey)return toast('Configurá primero la Master Key','warn');
   if(!binEns)return toast('Falta el Bin ID de ensaladeras','warn');
@@ -1276,7 +1286,7 @@ async function guardarRegistro(){
   if(uds<=0)return toast('Ingresá las unidades producidas','warn');
   const ops=gv('reg-ops').split(',').map(x=>x.trim()).filter(Boolean);
   const reg={id:'man-'+Date.now()+'_'+Math.random().toString(36).slice(2,6),fecha,turno,hIni:HORARIO[turno]?HORARIO[turno].ini:'',hFin:HORARIO[turno]?HORARIO[turno].fin:'',operarios:ops,prod,fam:CAT[prod].fam,nbob:gv('reg-nbob').trim(),partida:gv('reg-partida').trim(),kg:parseInt(gv('reg-kg'))||0,metros:0,cini:0,cfin:0,cajas:uxp>0?Math.round(uds/uxp):0,uxp,uds,ts:new Date().toISOString(),obs:gv('reg-obs').trim(),origen:'manual-pc'};
-  DB.bobinas.push(reg);
+  DB.bobinas.push(reg);prodDirty=true;
   const ok=await saveToCloud();
   if(ok){toast('Registro guardado ✓');limpiarRegistro();}
 }

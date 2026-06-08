@@ -410,6 +410,7 @@ const PIN_ADMIN='9090';
 let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},operarios:[]};
 DB.operarios=JSON.parse(localStorage.getItem('wf_termo_operarios')||'null')||OPERARIOS_DEFAULT.slice();
 let CFG={apiKey:'',binId:''};
+let cloudExtra={};
 let sel={turno:null,prod:null,ops:[],encargado:null};
 let curUser=null;
 let cajasManual=false, udsManual=false, admin=false;
@@ -472,6 +473,7 @@ async function loadFromCloud(){
     if(!res.ok)throw new Error('HTTP '+res.status);
     const r=(await res.json()).record||{};
     DB.bobinas=r.bobinas||[];DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};
+    cloudExtra={ajustes:r.ajustes,clientes:r.clientes,cronograma:r.cronograma,pedidos:r.pedidos,stockConfig:r.stockConfig};
     DB.operarios=(r.operarios&&r.operarios.length)?r.operarios:DB.operarios;
     localStorage.setItem('wf_termo_operarios',JSON.stringify(DB.operarios));
     if(document.getElementById('op-chips'))renderOps();
@@ -480,15 +482,20 @@ async function loadFromCloud(){
 }
 async function saveToCloud(isNew){
   setSync('loading','Guardando...');
-  const payload={bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,operarios:DB.operarios};
-  localStorage.setItem('wf_termo_local',JSON.stringify(payload));
+  const mine={bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,operarios:DB.operarios};
+  localStorage.setItem('wf_termo_local',JSON.stringify(Object.assign({pedidos:DB.pedidos,stockConfig:DB.stockConfig},mine)));
   localStorage.setItem('wf_termo_operarios',JSON.stringify(DB.operarios));
   try{
     let res;
     if(isNew||!CFG.binId){
-      res=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Name':'winflex-termoformado','X-Bin-Private':'true'},body:JSON.stringify(payload)});
+      res=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Name':'winflex-termoformado','X-Bin-Private':'true'},body:JSON.stringify(mine)});
       if(!res.ok)throw new Error('HTTP '+res.status);CFG.binId=(await res.json()).metadata.id;saveCfgLocal();
     }else{
+      // preservar lo que maneja sólo el portal (pedidos, clientes, ajustes, cronograma, stockConfig): releer lo último antes de pisar
+      let extra=cloudExtra;
+      try{const g=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});if(g.ok){const rec=(await g.json()).record||{};extra={ajustes:rec.ajustes,clientes:rec.clientes,cronograma:rec.cronograma,pedidos:rec.pedidos,stockConfig:rec.stockConfig};cloudExtra=extra;}}catch(_){}
+      const payload=Object.assign({},mine);
+      if(extra){['ajustes','clientes','cronograma','pedidos','stockConfig'].forEach(k=>{if(extra[k]!==undefined)payload[k]=extra[k];});}
       res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey},body:JSON.stringify(payload)});
       if(!res.ok)throw new Error('HTTP '+res.status);
     }
