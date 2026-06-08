@@ -148,6 +148,7 @@ td.mono{font-family:'DM Mono'}
 .pal-confirm-item{background:var(--surf2);border-radius:var(--r-sm);padding:13px;margin-bottom:11px;display:flex;align-items:center;gap:12px}
 .pal-confirm-item .info{flex:1;font-size:13px}.pal-confirm-item .info b{font-family:'DM Mono'}
 .pal-confirm-item label{margin-bottom:4px}
+.pal-confirm-item .pal-bobs{display:inline-block;margin-top:4px;font-size:11.5px;color:var(--green-d);font-weight:600}
 .pal-confirm-item .numwrap{width:96px}
 .pal-confirm-item input{padding:10px;text-align:center;font-family:'DM Mono';font-weight:700}
 </style>
@@ -284,6 +285,17 @@ td.mono{font-family:'DM Mono'}
   </div>
 </div>
 
+<!-- MODAL TURNO CERRADO -->
+<div class="modal-ov" id="modal-cierre-ok">
+  <div class="modal">
+    <div style="text-align:center;font-size:42px;line-height:1;margin-bottom:6px">🏁</div>
+    <h3 style="text-align:center">Turno cerrado</h3>
+    <p id="cierre-ok-sub" style="text-align:center;color:var(--text2);margin:0 0 16px;font-size:13px"></p>
+    <div id="cierre-ok-body"></div>
+    <button class="btn btn-green" style="margin-top:16px" onclick="volverInicio()">🏠 Volver al inicio</button>
+  </div>
+</div>
+
 <!-- MODAL EDITAR BOBINA (admin) -->
 <div class="modal-ov" id="modal-eb">
   <div class="modal">
@@ -412,6 +424,19 @@ function palletsCajas(prod,uxp){return DB.pallets.filter(p=>p.prod===prod&&p.uxp
 function disponible(prod,uxp){return Math.max(0, groupCajas(prod,uxp)-palletsCajas(prod,uxp));}
 function pendientes(prod,uxp){const cpp=cajasXPallet(prod,uxp);return cpp?Math.floor(disponible(prod,uxp)/cpp):0;}
 function proximoNum(){return DB.pallets.reduce((m,p)=>Math.max(m,parseInt(p.num)||0),0)+1;}
+// qué bobinas (por N°) alimentan cada pallet nuevo, según el orden de carga y las cajas consumidas
+function palletBobinas(prod,uxp,cpp,baseConsumed,n){
+  const seq=DB.bobinas.filter(b=>b.prod===prod&&b.uxp===uxp).slice()
+    .sort((a,b)=>((a.fecha||'')+(a.hora||'')+(a.ts||'')).localeCompare((b.fecha||'')+(b.hora||'')+(b.ts||'')));
+  const out=[];
+  for(let i=0;i<n;i++){
+    const from=baseConsumed+i*cpp, to=from+cpp, lst=[]; let cum=0;
+    for(const b of seq){const bc=b.cajas||0; if(bc<=0)continue; const s=cum,e=cum+bc; cum=e; const ov=Math.min(e,to)-Math.max(s,from); if(ov>0)lst.push({nbob:b.nbob||'s/n',cajas:ov});}
+    out.push(lst);
+  }
+  return out;
+}
+function bobsTxt(lst){return (lst&&lst.length)?lst.map(x=>`N°${x.nbob}${x.cajas?` · ${x.cajas} cj`:''}`).join('  ·  '):'—';}
 
 // ════════ JSONBIN ════════
 function loadCfg(){CFG.apiKey=localStorage.getItem('wf_termo_apikey')||'';CFG.binId=localStorage.getItem('wf_termo_binid')||'';}
@@ -572,13 +597,15 @@ async function guardarBobina(){
 function abrirConfirmPallet(prod,uxp,fecha,turno){
   const cpp=cajasXPallet(prod,uxp); if(!cpp)return;
   const n=pendientes(prod,uxp); if(n<1)return;
-  pendConfirm={prod,uxp,cpp,fecha,turno,n};
+  const base=palletsCajas(prod,uxp);
+  const bobs=palletBobinas(prod,uxp,cpp,base,n);
+  pendConfirm={prod,uxp,cpp,fecha,turno,n,bobs};
   const start=proximoNum();
   document.getElementById('pal-confirm-sub').textContent=(n===1?'Se completó un pallet':'Se completaron '+n+' pallets')+` de ${prod} (caja ${fmt(uxp)}, ${cpp} cajas c/u). Revisá el número y confirmá.`;
   let h='';
   for(let i=0;i<n;i++){
     h+=`<div class="pal-confirm-item">
-      <div class="info"><b>${prod}</b> · ${cpp} cajas · ${fmt(cpp*uxp)} u<br><span style="color:var(--text3)">caja ${fmt(uxp)} · ${turno}</span></div>
+      <div class="info"><b>${prod}</b> · ${cpp} cajas · ${fmt(cpp*uxp)} u<br><span style="color:var(--text3)">caja ${fmt(uxp)} · ${turno}</span><br><span class="pal-bobs">🎞️ Bobinas: ${bobsTxt(bobs[i])}</span></div>
       <div class="numwrap"><label>N° pallet</label><input type="number" inputmode="numeric" class="pal-num-input" value="${start+i}"></div>
     </div>`;
   }
@@ -592,11 +619,11 @@ function abrirConfirmPalletDesdeForm(){
 }
 async function confirmarPallets(){
   if(!pendConfirm)return;
-  const {prod,uxp,cpp,fecha,turno,n}=pendConfirm;
+  const {prod,uxp,cpp,fecha,turno,n,bobs}=pendConfirm;
   const inputs=document.querySelectorAll('#pal-confirm-body .pal-num-input');
   for(let i=0;i<n;i++){
     const num=parseInt(inputs[i].value)||proximoNum();
-    DB.pallets.push({id:Date.now()+'_'+i+'_'+Math.random().toString(36).slice(2,5),num,prod,uxp,cpp,cajas:cpp,uds:cpp*uxp,fecha,turno,encargado:sel.encargado||'',operarios:[...sel.ops],ts:new Date().toLocaleTimeString('es-AR'),confirmado:true});
+    DB.pallets.push({id:Date.now()+'_'+i+'_'+Math.random().toString(36).slice(2,5),num,prod,uxp,cpp,cajas:cpp,uds:cpp*uxp,fecha,turno,encargado:sel.encargado||'',operarios:[...sel.ops],bobinas:(bobs&&bobs[i])||[],ts:new Date().toLocaleTimeString('es-AR'),confirmado:true});
   }
   pendConfirm=null;closeModal('modal-pal');
   await saveToCloud(false);
@@ -615,6 +642,13 @@ function resumenTurno(fecha,turno){
   Object.keys(byP).forEach(p=>{const obj=objetivoTurno(p,turno);byP[p].obj=obj;byP[p].efic=obj>0?Math.round(byP[p].uds/obj*100):null;totUds+=byP[p].uds;totCajas+=byP[p].cajas;totPal+=byP[p].pallets;sumObj+=obj;});
   return {byP,totUds,totCajas,totPal,eficGlobal:sumObj>0?Math.round(totUds/sumObj*100):null,nBobs:bobs.length};
 }
+function cierreInner(r,turno){
+  const ec=r.eficGlobal===null?'var(--text3)':r.eficGlobal>=100?'var(--green-d)':r.eficGlobal>=80?'var(--yellow)':'var(--red)';
+  let h=`<div class="res-tot"><div class="res-kpi"><div class="v">${fmt(r.totUds)}</div><div class="l">unidades</div></div><div class="res-kpi"><div class="v">${fmt(r.totPal)}</div><div class="l">pallets</div></div><div class="res-kpi"><div class="v" style="color:${ec}">${r.eficGlobal!==null?r.eficGlobal+'%':'—'}</div><div class="l">eficiencia</div></div></div><div style="font-size:12px;color:var(--text2);margin-bottom:10px">Turno <b>${turno}</b> · ${HORARIO[turno].ini}–${HORARIO[turno].fin} · ${r.nBobs} bobinas`+(sel.ops.length?` · ${sel.ops.join(', ')}`:'')+`</div><table><thead><tr><th>Prod</th><th>Unid.</th><th>Cajas</th><th>Pallets</th><th>Efic.</th></tr></thead><tbody>`;
+  Object.keys(r.byP).forEach(p=>{const v=r.byP[p];const c=v.efic===null?'var(--text3)':v.efic>=100?'var(--green-d)':v.efic>=80?'var(--yellow)':'var(--red)';h+=`<tr><td class="mono"><b>${p}</b></td><td class="mono">${fmt(v.uds)}</td><td class="mono">${fmt(v.cajas)}</td><td class="mono">${fmt(v.pallets)}</td><td class="mono" style="color:${c}">${v.efic!==null?v.efic+'%':'—'}</td></tr>`;});
+  h+='</tbody></table>';
+  return h;
+}
 function renderCierre(){
   const cont=document.getElementById('cierre-resumen'),btn=document.getElementById('btn-cerrar-turno');
   const fecha=gv('f-fecha'),turno=sel.turno;
@@ -622,10 +656,7 @@ function renderCierre(){
   const r=resumenTurno(fecha,turno);
   if(r.nBobs===0){cont.innerHTML=`<div class="empty">No hay producción para ${turno} del ${fecha}</div>`;btn.style.display='none';return;}
   btn.style.display='block';
-  const ec=r.eficGlobal===null?'var(--text3)':r.eficGlobal>=100?'var(--green-d)':r.eficGlobal>=80?'var(--yellow)':'var(--red)';
-  let h=`<div class="res-tot"><div class="res-kpi"><div class="v">${fmt(r.totUds)}</div><div class="l">unidades</div></div><div class="res-kpi"><div class="v">${fmt(r.totPal)}</div><div class="l">pallets</div></div><div class="res-kpi"><div class="v" style="color:${ec}">${r.eficGlobal!==null?r.eficGlobal+'%':'—'}</div><div class="l">eficiencia</div></div></div><div style="font-size:12px;color:var(--text2);margin-bottom:10px">Turno <b>${turno}</b> · ${HORARIO[turno].ini}–${HORARIO[turno].fin} · ${r.nBobs} bobinas`+(sel.ops.length?` · ${sel.ops.join(', ')}`:'')+`</div><table><thead><tr><th>Prod</th><th>Unid.</th><th>Cajas</th><th>Pallets</th><th>Efic.</th></tr></thead><tbody>`;
-  Object.keys(r.byP).forEach(p=>{const v=r.byP[p];const c=v.efic===null?'var(--text3)':v.efic>=100?'var(--green-d)':v.efic>=80?'var(--yellow)':'var(--red)';h+=`<tr><td class="mono"><b>${p}</b></td><td class="mono">${fmt(v.uds)}</td><td class="mono">${fmt(v.cajas)}</td><td class="mono">${fmt(v.pallets)}</td><td class="mono" style="color:${c}">${v.efic!==null?v.efic+'%':'—'}</td></tr>`;});
-  h+='</tbody></table>';cont.innerHTML=h;
+  cont.innerHTML=cierreInner(r,turno);
 }
 async function cerrarTurno(){
   const fecha=gv('f-fecha'),turno=sel.turno;
@@ -634,7 +665,25 @@ async function cerrarTurno(){
   if(r.nBobs===0)return toast('No hay producción para cerrar','warn');
   if(DB.cierres.some(c=>c.fecha===fecha&&c.turno===turno)){if(!confirm('Ya hay un cierre para este turno. ¿Reemplazar?'))return;DB.cierres=DB.cierres.filter(c=>!(c.fecha===fecha&&c.turno===turno));}
   DB.cierres.push({id:Date.now()+'_'+Math.random().toString(36).slice(2,6),fecha,turno,hIni:HORARIO[turno].ini,hFin:HORARIO[turno].fin,encargado:sel.encargado||'',operarios:[...sel.ops],resumen:r.byP,totUds:r.totUds,totCajas:r.totCajas,totPallets:r.totPal,eficGlobal:r.eficGlobal,ts:new Date().toLocaleString('es-AR')});
-  await saveToCloud(false);toast('Turno cerrado 🏁');
+  await saveToCloud(false);
+  document.getElementById('cierre-ok-sub').textContent=`${fecha} · Turno ${turno} · ${HORARIO[turno].ini}–${HORARIO[turno].fin}`;
+  document.getElementById('cierre-ok-body').innerHTML=cierreInner(r,turno);
+  document.getElementById('modal-cierre-ok').classList.add('show');
+}
+function volverInicio(){
+  closeModal('modal-cierre-ok');
+  sel.turno=null; sel.prod=null;
+  sel.ops = sel.encargado?[sel.encargado]:[];
+  document.querySelectorAll('.turno-btn').forEach(c=>c.classList.remove('sel'));
+  document.querySelectorAll('#prod-zone .prod-btn').forEach(b=>b.classList.remove('sel'));
+  ['f-nbob','f-partida','f-kg','f-metros','f-cini','f-cfin','f-cajas','f-uds','f-obs'].forEach(id=>sv(id,''));
+  const ux=document.getElementById('f-uxp'); if(ux)ux.innerHTML='';
+  sv('f-fecha',new Date().toISOString().split('T')[0]); sv('f-hora',hhmmNow());
+  cajasManual=false; udsManual=false;
+  document.getElementById('pal-status').style.display='none';
+  goTab('bobina'); renderOps();
+  window.scrollTo(0,0);
+  toast('Listo para el próximo turno ✓');
 }
 
 // ════════ RENDER LISTAS ════════
@@ -658,7 +707,7 @@ function renderPalList(){
   const el=document.getElementById('pal-list');if(!el)return;
   const items=DB.pallets.slice().sort((a,b)=>(parseInt(b.num)||0)-(parseInt(a.num)||0)).slice(0,admin?200:25);
   if(!items.length){el.innerHTML='<div class="empty">Todavía no se cerró ningún pallet</div>';return;}
-  el.innerHTML=items.map(p=>`<div class="list-item"><div class="li-pal">#${p.num}</div><div class="li-meta"><b>${p.prod}</b> · caja ${fmt(p.uxp)} · ${p.cpp} cajas · ${(p.fecha||'').slice(5)} ${p.turno||''}</div>`+(admin?actBtns('pal',p.id):'')+`</div>`).join('');
+  el.innerHTML=items.map(p=>`<div class="list-item"><div class="li-pal">#${p.num}</div><div class="li-meta"><b>${p.prod}</b> · caja ${fmt(p.uxp)} · ${p.cpp} cajas · ${(p.fecha||'').slice(5)} ${p.turno||''}`+((p.bobinas&&p.bobinas.length)?`<br><span style="color:var(--text3)">🎞️ ${p.bobinas.map(x=>'N°'+x.nbob).join(', ')}</span>`:'')+`</div>`+(admin?actBtns('pal',p.id):'')+`</div>`).join('');
 }
 function renderCierreList(){
   const el=document.getElementById('cierre-list');if(!el)return;
