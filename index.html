@@ -171,6 +171,21 @@ tr.cli-row.open{background:var(--surf2)}
 .chev-sp{display:inline-block;width:15px}
 .tbl-soft tr.stk-detail td{padding:0 0 8px;border:none;background:transparent}
 .tbl-soft tr.stk-detail:hover td{background:transparent}
+.boxdet{margin:0 14px 16px;background:var(--surf2);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.boxdet-h,.boxdet-r{display:flex;align-items:center;gap:10px;padding:10px 16px}
+.boxdet-h>span,.boxdet-r>span{flex:1 1 0;min-width:0}
+.boxdet-h>span:first-child,.boxdet-r>span:first-child{flex:2.2 1 0;min-width:150px}
+.boxdet-h{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);background:var(--surf3);border-bottom:1px solid var(--border)}
+.boxdet-h .v{text-align:right}
+.boxdet-r{font-size:14px;border-bottom:1px solid var(--border)}
+.boxdet-body .boxdet-r:last-child{border-bottom:none}
+.boxdet-r:hover{background:var(--surf)}
+.boxdet-r .sz{display:flex;flex-direction:column;line-height:1.25}
+.boxdet-r .sz b{font-weight:800;font-size:14.5px}
+.boxdet-r .sz small{color:var(--text3);font-size:11px;font-weight:500}
+.boxdet-r .v{text-align:right;font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums;font-size:14px}
+.boxdet-r .v.zero{color:var(--border2)}
+.boxdet-note{padding:9px 16px 11px;font-size:11.5px;color:var(--text3);background:var(--surf3);border-top:1px solid var(--border)}
 .crono-table{width:100%;border-collapse:separate;border-spacing:0;min-width:880px}
 .crono-table th,.crono-table td{border:1px solid var(--border2)}
 .crono-th{background:var(--surf2);font-size:12.5px;text-transform:capitalize;padding:8px 6px;text-align:center;color:var(--text);font-weight:700;position:static}
@@ -830,7 +845,7 @@ function toggleDia(row){const d=row.nextElementSibling;const op=row.classList.to
 
 let stockSoloMov=true;
 function boxDetail(p,boxes){
-  return `<div class="subwrap"><table class="subtbl"><thead><tr><th>Tamaño de caja</th><th class="num">Stock (u)</th><th class="num">Stock (cajas)</th><th class="num">Stock (pallets)</th></tr></thead><tbody>${boxes.map(x=>`<tr><td><b>${fmt(x.uxp)}</b> u/caja${x.cpp?` · ${x.cpp} cajas/pallet`:''}</td><td class="num">${fmt(x.stU)}</td><td class="num">${fmt(x.stC)}</td><td class="num">${x.stP}</td></tr>`).join('')}</tbody></table><div class="card-note" style="margin:8px 0 2px">Estimado: el stock disponible se reparte por tamaño de caja (las ventas no registran el tipo de caja).</div></div>`;
+  return `<div class="boxdet"><div class="boxdet-h"><span>Tamaño de caja</span><span class="v">Stock (u)</span><span class="v">Stock (cajas)</span><span class="v">Stock (pallets)</span></div><div class="boxdet-body">${boxes.map(x=>`<div class="boxdet-r"><span class="sz"><b>${fmt(x.uxp)} u/caja</b>${x.cpp?`<small>${x.cpp} cajas por pallet</small>`:'<small>&nbsp;</small>'}</span><span class="v${x.stU?'':' zero'}">${fmt(x.stU)}</span><span class="v${x.stC?'':' zero'}">${fmt(x.stC)}</span><span class="v${x.stP?'':' zero'}">${x.stP}</span></div>`).join('')}</div><div class="boxdet-note">El stock disponible se reparte por tamaño de caja según lo producido (las ventas no registran el tipo de caja).</div></div>`;
 }
 function toggleStockRow(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('stk-detail'))d.style.display=op?'table-row':'none';}
 function tieneMov(p){return producido(p)>0||vendido(p)>0||stockActual(p)!==0||enPedido(p)>0||(stockCfg(p).ini||0)>0||ajustesProd(p)!==0;}
