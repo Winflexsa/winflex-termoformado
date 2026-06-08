@@ -190,10 +190,21 @@ tr.cli-row.open{background:var(--surf2)}
 .pditem select,.pditem input{padding:8px;border:1px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surf);color:var(--text);width:100%;box-sizing:border-box}
 .pdi-del{border:none;background:var(--surf3);color:var(--bad);border-radius:8px;cursor:pointer;height:34px;font-size:13px}
 .pdi-del:hover{background:#fde8e8}
-.subttl{font-size:12px;font-weight:700;color:var(--text2);margin:2px 0 8px}
-.fmtbar{display:inline-block;width:100px;height:8px;background:var(--surf3);border-radius:5px;overflow:hidden;vertical-align:middle;margin-right:8px}
-.fmtfill{height:100%;background:var(--green);border-radius:5px}
-.fmtpct{font-size:12px;color:var(--text2);font-weight:600}
+.boxwrap{background:var(--surf2);border-radius:12px;padding:14px 18px;max-width:720px;margin:0 auto}
+.boxttl{font-size:12.5px;font-weight:700;color:var(--text2);margin-bottom:10px;text-align:center}
+.boxtbl{width:100%;border-collapse:collapse}
+.boxtbl th{font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--text3);font-weight:700;padding:7px 12px;text-align:center;border-bottom:1.5px solid var(--border2)}
+.boxtbl th:first-child{text-align:left}
+.boxtbl td{padding:9px 12px;font-size:13.5px;border-bottom:1px solid var(--border)}
+.boxtbl tbody tr:nth-child(odd):not(.bx-tot){background:rgba(0,0,0,.018)}
+.bx-fmt b{font-size:15px}
+.bx-fmt span{display:block;font-size:11px;color:var(--text3);margin-top:1px}
+.bx-n{text-align:center;font-family:'DM Mono',monospace;font-weight:600;font-variant-numeric:tabular-nums}
+.bx-tot td{border-top:2px solid var(--green);border-bottom:none;font-weight:800;color:var(--green);padding-top:10px}
+.bx-tot .bx-n{color:var(--green)}
+.boxnote{font-size:11px;color:var(--text3);margin-top:10px;text-align:center}
+.stk-table th.num,.stk-table td.num{text-align:center}
+.stk-table th:first-child,.stk-table td:first-child{padding-left:14px}
 .prodtag{font-family:'DM Mono';font-weight:700;font-size:12px;padding:2px 8px;border-radius:5px;background:var(--cl-l);color:var(--cl)}
 .prodtag.ens{background:var(--en-l);color:var(--green-dd)}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -423,7 +434,7 @@ tr.cli-row.open{background:var(--surf2)}
     <div class="page" id="pg-stock">
       <div class="page-head"><div><div class="page-title">Stock y pallets</div><div class="page-sub">Lo que hay disponible para entregar, en unidades, cajas y pallets</div></div><div class="head-act"><div class="seg fam-seg-ctl"><button data-f="Todos" class="on" onclick="setFam('Todos')">Todos</button><button data-f="Clamshell" onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera" onclick="setFam('Ensaladera')">Ensaladera</button></div><button class="btn btn-xls btn-sm" onclick="exportExcel('stock')">⬇ Excel</button><button class="btn btn-greend btn-sm" onclick="openEstablecerStock()">📋 Establecer stock real</button><button class="btn btn-outline btn-sm" onclick="openAjuste()">🔧 Ajuste de inventario</button><button class="btn btn-outline btn-sm" onclick="openStock()">✏️ Stock inicial</button></div></div>
       <div class="kpis" id="stock-kpis" style="grid-template-columns:repeat(3,1fr)"></div>
-      <div class="card stock-card"><div class="card-head"><div class="card-title" style="margin:0">📦 Stock disponible</div><button class="btn btn-outline btn-sm" id="stk-toggle" onclick="toggleStockMov()">Ver todos</button></div><div class="card-note">Disponible = unidades en planta. <b>Libre</b> = lo que queda después de descontar lo comprometido en pedidos. Cajas y pallets son aproximados (el stock son unidades hasta armar el pallet).</div><div class="tbl-wrap"><table class="tbl-soft"><thead><tr><th>Producto</th><th class="num">Disponible (u)</th><th class="num">≈ Cajas</th><th class="num">≈ Pallets</th><th class="num">En pedido</th><th class="num">Libre (u)</th></tr></thead><tbody id="stock-tbody"></tbody></table></div></div>
+      <div class="card stock-card"><div class="card-head"><div class="card-title" style="margin:0">📦 Stock disponible</div><button class="btn btn-outline btn-sm" id="stk-toggle" onclick="toggleStockMov()">Ver todos</button></div><div class="card-note">Disponible = unidades en planta. <b>Libre</b> = lo que queda después de descontar lo comprometido en pedidos. Cajas y pallets son aproximados (el stock son unidades hasta armar el pallet).</div><div class="tbl-wrap"><table class="tbl-soft stk-table"><thead><tr><th>Producto</th><th class="num">Disponible (u)</th><th class="num">≈ Cajas</th><th class="num">≈ Pallets</th><th class="num">En pedido</th><th class="num">Libre (u)</th></tr></thead><tbody id="stock-tbody"></tbody></table></div></div>
       <div class="card stock-card"><div class="card-title">🔄 Producción y ventas</div><div class="card-note">De dónde sale el stock: lo que entró, se produjo, se vendió y los ajustes manuales.</div><div class="tbl-wrap"><table class="tbl-soft"><thead><tr><th>Producto</th><th class="num">Inicial</th><th class="num">Producido</th><th class="num">Vendido</th><th class="num">Ajustes</th></tr></thead><tbody id="mov-tbody"></tbody></table></div></div>
       <div class="card" id="ajustes-card"><div class="card-title">🔧 Historial de ajustes de inventario</div><div id="ajustes-list"></div></div>
       <div class="card">
@@ -907,8 +918,8 @@ function toggleDia(row){const d=row.nextElementSibling;const op=row.classList.to
 
 let stockSoloMov=true;
 function boxDetail(p,boxes){
-  const tot=boxes.reduce((s,x)=>s+x.prodUds,0)||1;
-  return `<div class="subwrap"><div class="subttl">Formatos de caja en los que se produce ${p}</div><table class="subtbl"><thead><tr><th>Tamaño de caja</th><th class="num">Unidades producidas</th><th class="num">Cajas</th><th>Proporción</th></tr></thead><tbody>${boxes.map(x=>{const pct=Math.round(x.prodUds/tot*100);return `<tr><td><b>${fmt(x.uxp)}</b> u/caja${x.cpp?` · ${x.cpp} cajas/pallet`:''}</td><td class="num">${fmt(x.prodUds)}</td><td class="num">${fmt(x.prodCajas)}</td><td><div class="fmtbar"><div class="fmtfill" style="width:${pct}%"></div></div><span class="fmtpct">${pct}%</span></td></tr>`;}).join('')}</tbody></table><div class="card-note" style="margin:8px 0 2px">Así se repartió la producción por formato de caja. El stock disponible son unidades; el formato final se define al armar cada pallet.</div></div>`;
+  const tU=boxes.reduce((s,x)=>s+x.stU,0),tC=boxes.reduce((s,x)=>s+x.stC,0),tP=Math.round(boxes.reduce((s,x)=>s+x.stP,0)*10)/10;
+  return `<div class="boxwrap"><div class="boxttl">Stock de <b>${p}</b> repartido por formato de caja</div><table class="boxtbl"><thead><tr><th>Tamaño de caja</th><th>Unidades</th><th>Cajas</th><th>Pallets</th></tr></thead><tbody>${boxes.map(x=>`<tr><td class="bx-fmt"><b>${fmt(x.uxp)}</b> u/caja${x.cpp?`<span>${x.cpp} cajas por pallet</span>`:'<span>—</span>'}</td><td class="bx-n">${fmt(x.stU)}</td><td class="bx-n">${fmt(x.stC)}</td><td class="bx-n">${x.stP?x.stP:'—'}</td></tr>`).join('')}<tr class="bx-tot"><td>Total disponible</td><td class="bx-n">${fmt(tU)}</td><td class="bx-n">${fmt(tC)}</td><td class="bx-n">${tP}</td></tr></tbody></table><div class="boxnote">Cajas = unidades ÷ unidades por caja&nbsp;&nbsp;·&nbsp;&nbsp;Pallets = cajas ÷ cajas por pallet</div></div>`;
 }
 function toggleStockRow(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('stk-detail'))d.style.display=op?'table-row':'none';}
 function tieneMov(p){return producido(p)>0||vendido(p)>0||stockActual(p)!==0||enPedido(p)>0||(stockCfg(p).ini||0)>0||ajustesProd(p)!==0;}
