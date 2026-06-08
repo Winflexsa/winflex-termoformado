@@ -225,7 +225,7 @@ td.mono{font-family:'DM Mono'}
         <div class="row cols1"><div><label>Hora de carga</label><input type="time" id="f-hora"></div></div>
         <div class="card-title" style="margin-top:4px"><span class="step-n">3</span>Cajas y unidades</div>
         <div class="row">
-          <div><label>Contador inicial</label><input type="number" id="f-cini" inputmode="numeric" placeholder="0" oninput="recalc()"></div>
+          <div><label>Contador inicial <span style="color:var(--text3);font-weight:400">(auto)</span></label><input type="number" id="f-cini" inputmode="numeric" placeholder="0" oninput="recalc()"></div>
           <div><label>Contador final</label><input type="number" id="f-cfin" inputmode="numeric" placeholder="0" oninput="recalc()"></div>
         </div>
         <div class="chain">
@@ -438,6 +438,12 @@ function palletBobinas(prod,uxp,cpp,baseConsumed,n){
   return out;
 }
 function bobsTxt(lst){return (lst&&lst.length)?lst.map(x=>`N°${x.nbob}${x.cajas?` · ${x.cajas} cj`:''}`).join('  ·  '):'—';}
+// contador inicial sugerido: sigue al contador final de la última bobina cargada de ese producto
+function proximoContador(prod){
+  const seq=DB.bobinas.filter(b=>b.prod===prod&&(parseInt(b.cfin)||0)>0)
+    .sort((a,b)=>((a.fecha||'')+(a.hora||'')+(a.ts||'')).localeCompare((b.fecha||'')+(b.hora||'')+(b.ts||'')));
+  return seq.length?(parseInt(seq[seq.length-1].cfin)||0)+1:'';
+}
 // elimina pallets "huérfanos" de un producto/caja cuando ya no hay producción que los respalde
 function reconciliarPallets(prod,uxp){
   const cap=groupCajas(prod,uxp);
@@ -548,7 +554,7 @@ function toggleOp(el,o){
   if(sel.ops.includes(o))sel.ops=sel.ops.filter(x=>x!==o);
   else sel.ops.push(o);
 }
-function selProd(p){sel.prod=p;document.querySelectorAll('#prod-zone .prod-btn').forEach(b=>b.classList.toggle('sel',b.dataset.prod===p));const ux=document.getElementById('f-uxp');ux.innerHTML=CAT[p].cajas.map(c=>`<option value="${c}">${fmt(c)}</option>`).join('');udsManual=false;recalc();}
+function selProd(p){sel.prod=p;document.querySelectorAll('#prod-zone .prod-btn').forEach(b=>b.classList.toggle('sel',b.dataset.prod===p));const ux=document.getElementById('f-uxp');ux.innerHTML=CAT[p].cajas.map(c=>`<option value="${c}">${fmt(c)}</option>`).join('');udsManual=false;const pc=proximoContador(p);if(pc!==''&&!gv('f-cini'))sv('f-cini',pc);recalc();}
 function goTab(t){curTab=t;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===t));document.querySelectorAll('.pane').forEach(x=>x.classList.toggle('active',x.id==='pane-'+t));renderAll();}
 
 // ════════ CÁLCULO BOBINA ════════
@@ -600,6 +606,7 @@ async function guardarBobina(){
   await saveToCloud(false);
   ['f-nbob','f-partida','f-kg','f-metros','f-cini','f-cfin','f-cajas','f-uds','f-obs'].forEach(id=>sv(id,''));
   sv('f-hora',hhmmNow());
+  const pc=proximoContador(sel.prod);if(pc!=='')sv('f-cini',pc);
   cajasManual=false;udsManual=false;
   // ¿se completó algún pallet? -> abrir confirmación con número correlativo editable
   const prod=sel.prod;
