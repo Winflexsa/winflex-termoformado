@@ -167,6 +167,21 @@ tr.cli-row.open{background:var(--surf2)}
 .ent-sec-t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:8px}
 .ent-row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:7px;font-size:13.5px}
 .ent-row .sub{display:block;font-size:11.5px;color:var(--text3)}
+.ped-fsel{background:var(--surf);border:1px solid var(--border2);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;font-family:inherit;color:var(--text);cursor:pointer}
+.ped-fsel:focus{outline:none;border-color:var(--green)}
+.pedsum{cursor:pointer}
+.pedsum:hover{background:var(--surf2)}
+.pedsum td{vertical-align:middle}
+.pedcar{display:inline-block;font-size:10px;color:var(--text3)}
+.peddet-row td{border-bottom:2px solid var(--border2)}
+.peddet-panel{background:var(--surf2);padding:14px 18px 14px 22px}
+.peddet-grid{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:12px}
+.peddet-grid .kv-l{display:block;font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.03em}
+.peddet-grid .kv-v{display:block;font-size:13px;font-weight:600;margin-top:2px}
+.peddet-sub{width:100%;border-collapse:collapse;background:var(--surf);border-radius:10px;overflow:hidden}
+.peddet-sub th{font-size:11px;text-align:left;padding:7px 10px;background:var(--surf3);color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+.peddet-sub td{padding:7px 10px;border-top:1px solid var(--border);font-size:13px;vertical-align:middle}
+.peddet-obs{font-size:12px;color:var(--text2);margin-top:10px}
 .prodtag{font-family:'DM Mono';font-weight:700;font-size:12px;padding:2px 8px;border-radius:5px;background:var(--cl-l);color:var(--cl)}
 .prodtag.ens{background:var(--en-l);color:var(--green-dd)}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -410,24 +425,20 @@ tr.cli-row.open{background:var(--surf2)}
 
     <!-- PEDIDOS -->
     <div class="page" id="pg-pedidos">
-      <div class="page-head"><div><div class="page-title">Pedidos</div><div class="page-sub">Seguimiento de pedidos por cliente, estado y entrega</div></div><div class="head-act"><div class="seg fam-seg-ctl"><button data-f="Todos" class="on" onclick="setFam('Todos')">Todos</button><button data-f="Clamshell" onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera" onclick="setFam('Ensaladera')">Ensaladera</button></div><button class="btn btn-xls btn-sm" onclick="exportExcel('pedidos')">⬇ Excel</button><button class="btn btn-green btn-sm" onclick="openPedido()">+ Nuevo pedido</button></div></div>
-      <div class="kpis" id="ped-kpis" style="grid-template-columns:repeat(4,1fr)"></div>
+      <div class="page-head"><div><div class="page-title">Pedidos</div><div class="page-sub">Historial completo de pedidos 2026</div></div><div class="head-act"><button class="btn btn-xls btn-sm" onclick="exportExcel('pedidos')">⬇ Excel</button><button class="btn btn-green btn-sm" onclick="openPedido()">+ Nuevo pedido</button></div></div>
+      <div class="kpis" id="ped-kpis" style="grid-template-columns:repeat(3,1fr)"></div>
       <div id="ped-next"></div>
       <div class="filters" style="align-items:center">
-        <input class="ped-search" id="ped-q" placeholder="🔎 Buscar cliente, producto u OC…" oninput="renderPedidos()">
-        <div class="seg2" id="ped-fseg">
-          <button class="on" data-f="activos" onclick="fltPed('activos')">Por entregar</button>
-          <button data-f="Pendiente" onclick="fltPed('Pendiente')">Pendientes</button>
-          <button data-f="Parcial" onclick="fltPed('Parcial')">Parciales</button>
-          <button data-f="Entregado" onclick="fltPed('Entregado')">Entregados</button>
-          <button data-f="Cancelado" onclick="fltPed('Cancelado')">Cancelados</button>
-          <button data-f="todos" onclick="fltPed('todos')">Todos</button>
-        </div>
+        <input class="ped-search" id="ped-q" placeholder="🔎 Buscar cliente…" oninput="renderPedidos()" style="min-width:170px;flex:0 1 200px">
+        <select class="ped-fsel" id="ped-fest" onchange="renderPedidos()"><option value="">Todos los estados</option><option>Pendiente</option><option>Parcial</option><option>Entregado</option><option>Cancelado</option></select>
+        <select class="ped-fsel" id="ped-fmes" onchange="renderPedidos()"><option value="">Todos los meses</option><option>Enero</option><option>Febrero</option><option>Marzo</option><option>Abril</option><option>Mayo</option><option>Junio</option><option>Julio</option><option>Agosto</option><option>Septiembre</option><option>Octubre</option><option>Noviembre</option><option>Diciembre</option></select>
+        <select class="ped-fsel" id="ped-fprod" onchange="renderPedidos()"><option value="">Todos los productos</option><option>F40</option><option>F41</option><option>F43</option><option>F50</option><option>F61</option><option>F63</option><option>E900</option><option>T900</option><option>S900</option><option>E910</option></select>
+        <select class="ped-fsel" id="ped-fvend" onchange="renderPedidos()"><option value="">Todos los vendedores</option></select>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
         <div class="tbl-wrap" style="border:none">
           <table class="ptable">
-            <thead><tr><th>Estado</th><th>Cliente</th><th>Producto</th><th class="num">Unidades</th><th>Entrega</th><th>OC / Ref</th><th>Vendedor</th><th></th></tr></thead>
+            <thead><tr><th style="width:56px"></th><th>Cliente</th><th>Fecha</th><th>Productos</th><th class="num">Unidades</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody id="ped-tbody"></tbody>
           </table>
         </div>
@@ -923,43 +934,89 @@ function pedUrgency(p){
   return{cls:'urg-ok',txt:'En '+diff+'d',days:diff};
 }
 const PEDCLS={Pendiente:'c-pend',Entregado:'c-ent',Parcial:'c-parc',Cancelado:'c-canc'};
+function mesNombre(f){if(!f)return '';const mm=parseInt((f.split('-')[1]||''),10);return mm>=1&&mm<=12?MESES[mm-1]:'';}
+function presFor(prod){const bx=(prodByBox(prod)||[]).slice().sort((a,b)=>b.uds-a.uds);if(bx.length&&bx[0].uxp)return bx[0].uxp;return (CAT[prod]&&CAT[prod].cajas&&CAT[prod].cajas[0])||1;}
+function orderEstado(items){const act=items.filter(p=>p.estado!=='Cancelado');if(!act.length)return 'Cancelado';if(act.every(p=>pedPendiente(p)===0))return 'Entregado';if(act.some(p=>pedEntregado(p)>0))return 'Parcial';return 'Pendiente';}
+function fillVendOpts(){const sel=document.getElementById('ped-fvend');if(!sel)return;const cur=sel.value;const vs=[...new Set(DB.pedidos.map(p=>p.vendedor).filter(Boolean))].sort();sel.innerHTML='<option value="">Todos los vendedores</option>'+vs.map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');}
+function togglePedDet(id){const r=document.getElementById(id);if(!r)return;const open=r.style.display!=='none';r.style.display=open?'none':'table-row';const c=document.getElementById(id+'-car');if(c)c.textContent=open?'▶':'▼';}
+
 function renderPedidos(){
-  const all=DB.pedidos.filter(p=>famOk(p.prod));
+  const fam=DB.pedidos.slice();
   const q=(document.getElementById('ped-q')?.value||'').toLowerCase().trim();
-  const pend=all.filter(p=>p.estado==='Pendiente'||p.estado==='Parcial');
-  const udsPen=pend.reduce((s,p)=>s+pedPendiente(p),0);
-  const venc=pend.filter(p=>{const u=pedUrgency(p);return u&&u.venc;}).length;
+  const fest=document.getElementById('ped-fest')?.value||'',fmes=document.getElementById('ped-fmes')?.value||'',fprod=document.getElementById('ped-fprod')?.value||'',fvend=document.getElementById('ped-fvend')?.value||'';
+  fillVendOpts();
+  const map=new Map();
+  fam.forEach(p=>{const k=[normName(p.cliente),(p.vendedor||'').toLowerCase().trim(),p.fecha||'',p.entrega||'',(p.oc||'').toLowerCase().trim()].join('|');if(!map.has(k))map.set(k,{cliente:p.cliente,vendedor:p.vendedor,fecha:p.fecha,entrega:p.entrega,oc:p.oc,obs:p.obs,items:[]});const o=map.get(k);o.items.push(p);if(!o.obs&&p.obs)o.obs=p.obs;});
+  let orders=[...map.values()];
+  orders.forEach(o=>o.est=orderEstado(o.items));
+  orders=orders.filter(o=>{
+    if(q&&!((o.cliente||'').toLowerCase().includes(q)))return false;
+    if(fvend&&(o.vendedor||'')!==fvend)return false;
+    if(fmes&&mesNombre(o.fecha)!==fmes)return false;
+    if(fprod&&!o.items.some(i=>i.prod===fprod))return false;
+    if(fest&&o.est!==fest)return false;
+    return true;
+  });
+  const pend=orders.filter(o=>o.est==='Pendiente'||o.est==='Parcial'),ent=orders.filter(o=>o.est==='Entregado');
+  const udsPend=pend.reduce((s,o)=>s+o.items.reduce((x,p)=>x+pedPendiente(p),0),0);
+  const udsEnt=ent.reduce((s,o)=>s+o.items.reduce((x,p)=>x+pedEntregado(p),0),0);
   document.getElementById('ped-kpis').innerHTML=`
-    <div class="kpi"><div class="v">${fmt(all.length)}</div><div class="l">Pedidos</div><div class="s">${famFilter==='Todos'?'todas las familias':famFilter}</div></div>
-    <div class="kpi"><div class="v" style="color:var(--mid)">${fmt(pend.length)}</div><div class="l">Pendientes / parciales</div></div>
-    <div class="kpi"><div class="v">${fmt(udsPen)}</div><div class="l">Unidades por entregar</div></div>
-    <div class="kpi"><div class="v" style="color:${venc?'var(--bad)':'var(--ok)'}">${fmt(venc)}</div><div class="l">Entregas vencidas</div></div>`;
-  const next=pend.filter(p=>p.entrega).sort((a,b)=>a.entrega.localeCompare(b.entrega)).slice(0,5);
-  const nx=document.getElementById('ped-next');
-  nx.innerHTML=next.length?`<div class="ped-next"><div class="nt">⏱ Próximas entregas</div>${next.map(p=>{const u=pedUrgency(p);return `<div class="nx-row"><div><b>${p.cliente||'—'}</b> · <span class="prodtag ${CAT[p.prod]?.fam==='Ensaladera'?'ens':''}">${p.prod}</span> <span class="mono" style="color:var(--text2)">${fmt(p.uds)}u</span></div><div style="white-space:nowrap">${(p.entrega||'').slice(5)} ${u?`<span class="urg ${u.cls}">${u.txt}</span>`:''}</div></div>`;}).join('')}</div>`:'';
-  let list=all.slice();
-  if(fltPedido==='activos')list=list.filter(p=>p.estado==='Pendiente'||p.estado==='Parcial');
-  else if(fltPedido!=='todos')list=list.filter(p=>p.estado===fltPedido);
-  if(q)list=list.filter(p=>((p.cliente||'')+' '+(p.prod||'')+' '+(p.oc||'')+' '+(p.obs||'')+' '+(p.vendedor||'')).toLowerCase().includes(q));
-  list.sort((a,b)=>{const ap=(a.estado==='Pendiente'||a.estado==='Parcial')?0:1,bp=(b.estado==='Pendiente'||b.estado==='Parcial')?0:1;if(ap!==bp)return ap-bp;if(ap===0)return (a.entrega||'9999').localeCompare(b.entrega||'9999');return (b.fecha||'').localeCompare(a.fecha||'');});
+    <div class="kpi"><div class="v">${fmt(orders.length)}</div><div class="l">Mostrando</div><div class="s">pedidos</div></div>
+    <div class="kpi"><div class="v" style="color:var(--mid)">${fmt(pend.length)}</div><div class="l">Pendientes</div><div class="s">${fmt(udsPend)} uds</div></div>
+    <div class="kpi"><div class="v" style="color:var(--ok)">${fmt(ent.length)}</div><div class="l">Entregados</div><div class="s">${fmt(udsEnt)} uds</div></div>`;
+  const nx=document.getElementById('ped-next');if(nx)nx.innerHTML='';
+  orders.sort((a,b)=>{const ap=(a.est==='Pendiente'||a.est==='Parcial')?0:1,bp=(b.est==='Pendiente'||b.est==='Parcial')?0:1;if(ap!==bp)return ap-bp;return (b.fecha||'').localeCompare(a.fecha||'');});
   const tb=document.getElementById('ped-tbody');
-  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty" style="padding:40px 0;text-align:center">No hay pedidos para este filtro</td></tr>';return;}
-  tb.innerHTML=list.map(p=>{const u=pedUrgency(p);const est=p.estado||'Pendiente';const ent=pedEntregado(p),pen=pedPendiente(p);
-    const estSel=`<select class="ped-est ${PEDCLS[est]||''}" onchange="cambiarEstadoRapido('${p.id}',this.value)" onclick="event.stopPropagation()">${['Pendiente','Parcial','Entregado','Cancelado'].map(s=>`<option value="${s}" ${s===est?'selected':''}>${s}</option>`).join('')}</select>`;
-    const saldo = ent>0 ? (pen>0?`<span class="ped-saldo">✓ ${fmt(ent)} · falta ${fmt(pen)}</span>`:`<span class="ped-saldo ok">✓ entregado</span>`) : (est==='Cancelado'?'':`<span class="ped-saldo add">📦 registrar entrega</span>`);
-    const udsCell=`<button class="ped-uds" onclick="openEntregas('${p.id}')" title="Ver y registrar entregas"><b>${fmt(p.uds)}</b>${saldo}</button>`;
-    return `<tr class="st-${est}">
-      <td>${estSel}</td>
-      <td><b>${p.cliente||'—'}</b>${p.obs?`<span class="sub">${p.obs}</span>`:''}<span class="sub" style="color:var(--text3)">Pedido ${(p.fecha||'').slice(5)||'s/f'}</span></td>
-      <td><span class="prodtag ${CAT[p.prod]?.fam==='Ensaladera'?'ens':''}">${p.prod}</span></td>
-      <td class="mono">${udsCell}</td>
-      <td>${p.entrega?`<div class="dlv"><span>${(p.entrega).slice(5)}</span>${u?`<span class="urg ${u.cls}">${u.txt}</span>`:''}</div>`:'<span style="color:var(--text3)">—</span>'}</td>
-      <td>${p.oc||'<span style="color:var(--text3)">—</span>'}</td>
-      <td>${p.vendedor||'<span style="color:var(--text3)">—</span>'}</td>
-      <td class="acts"><button class="linkact" onclick="openPedido('${p.id}')" title="Editar (cantidades, fecha…)">✏️</button><button class="linkact del" onclick="delPedido('${p.id}')">🗑</button></td>
-    </tr>`;}).join('');
+  if(!orders.length){tb.innerHTML='<tr><td colspan="7" class="empty" style="padding:40px 0;text-align:center">No hay pedidos para este filtro</td></tr>';return;}
+  let html='';
+  orders.forEach((o,oi)=>{
+    const detId='peddet-'+oi;
+    const totalUds=o.items.reduce((s,p)=>s+(p.uds||0),0);
+    const prodSum=o.items.map(p=>{const pr=presFor(p.prod);return `${p.prod} x${fmt(pr)} (${fmt(Math.round((p.uds||0)/pr))}cj)`;}).join(' · ');
+    const u=pedUrgency(o.items.find(p=>p.estado==='Pendiente'||p.estado==='Parcial')||o.items[0]);
+    const single=o.items.length===1;
+    const acts=single
+      ? `<button class="linkact" onclick="event.stopPropagation();openPedido('${o.items[0].id}')" title="Editar">✏️</button><button class="linkact del" onclick="event.stopPropagation();delPedido('${o.items[0].id}')">🗑</button>`
+      : `<span style="font-size:11px;color:var(--text3)">${o.items.length} productos</span>`;
+    html+=`<tr class="pedsum st-${o.est}" onclick="togglePedDet('${detId}')">
+      <td style="color:var(--text3);white-space:nowrap"><span id="${detId}-car" class="pedcar">▶</span> <span style="font-size:10px">#${oi+1}</span></td>
+      <td><b>${o.cliente||'—'}</b><span class="sub" style="color:var(--text3)">${o.vendedor||'—'}</span></td>
+      <td><div class="dlv"><span>${(o.fecha||'').slice(5)||'s/f'}</span>${u&&u.venc?`<span class="urg ${u.cls}">${u.txt}</span>`:''}</div></td>
+      <td style="font-size:12px;color:var(--text2);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${prodSum}</td>
+      <td class="mono"><b>${fmt(totalUds)}</b></td>
+      <td><span class="chip ${PEDCLS[o.est]||''}">${o.est}</span></td>
+      <td class="acts" onclick="event.stopPropagation()">${acts}</td>
+    </tr>`;
+    const itemRows=o.items.map(p=>{
+      const pr=presFor(p.prod),cj=Math.round((p.uds||0)/pr),ent2=pedEntregado(p),pen2=pedPendiente(p),est2=p.estado||'Pendiente';
+      const estSel=`<select class="ped-est ${PEDCLS[est2]||''}" onchange="cambiarEstadoRapido('${p.id}',this.value)">${['Pendiente','Parcial','Entregado','Cancelado'].map(s=>`<option value="${s}" ${s===est2?'selected':''}>${s}</option>`).join('')}</select>`;
+      const saldo= ent2>0 ? (pen2>0?`<span class="ped-saldo">✓ ${fmt(ent2)} · falta ${fmt(pen2)}</span>`:`<span class="ped-saldo ok">✓ entregado</span>`) : (est2==='Cancelado'?'':`<span class="ped-saldo add">📦 entrega</span>`);
+      return `<tr class="peddet-item">
+        <td><span class="prodtag ${CAT[p.prod]?.fam==='Ensaladera'?'ens':''}">${p.prod}</span></td>
+        <td style="font-size:12px;color:var(--text2)">x${fmt(pr)} u/caja</td>
+        <td style="font-size:12px;color:var(--text2)">${fmt(cj)} cajas</td>
+        <td><button class="ped-uds" style="align-items:flex-start" onclick="openEntregas('${p.id}')" title="Ver y registrar entregas"><b>${fmt(p.uds)}</b>${saldo}</button></td>
+        <td>${estSel}</td>
+        <td class="acts"><button class="linkact" onclick="openPedido('${p.id}')" title="Editar">✏️</button><button class="linkact del" onclick="delPedido('${p.id}')">🗑</button></td>
+      </tr>`;
+    }).join('');
+    html+=`<tr id="${detId}" class="peddet-row" style="display:none"><td colspan="7" style="padding:0">
+      <div class="peddet-panel">
+        <div class="peddet-grid">
+          <div><span class="kv-l">Cliente</span><span class="kv-v">${o.cliente||'—'}</span></div>
+          <div><span class="kv-l">Vendedor</span><span class="kv-v">${o.vendedor||'—'}</span></div>
+          <div><span class="kv-l">Fecha pedido</span><span class="kv-v">${(o.fecha||'').slice(5)||'—'}</span></div>
+          <div><span class="kv-l">Entrega estimada</span><span class="kv-v">${o.entrega?(o.entrega).slice(5):'—'}</span></div>
+          <div><span class="kv-l">OC / Ref</span><span class="kv-v">${o.oc||'—'}</span></div>
+          <div><span class="kv-l">Estado</span><span class="kv-v"><span class="chip ${PEDCLS[o.est]||''}">${o.est}</span></span></div>
+        </div>
+        <table class="peddet-sub"><thead><tr><th>Producto</th><th>Presentación</th><th>Cajas</th><th>Unidades</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${itemRows}</tbody></table>
+        ${o.obs?`<div class="peddet-obs">💬 <b>Obs:</b> ${o.obs}</div>`:''}
+      </div>
+    </td></tr>`;
+  });
+  tb.innerHTML=html;
 }
-function fltPed(f){fltPedido=f;document.querySelectorAll('#ped-fseg button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));renderPedidos();}
 
 function renderDatos(){
   document.getElementById('datos-resumen').innerHTML=`<table>
