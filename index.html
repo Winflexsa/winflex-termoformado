@@ -126,6 +126,7 @@ tr.cli-row.open{background:var(--surf2)}
 .cli-det-meta b{color:var(--text);font-weight:600}
 .cli-det-tt{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:7px}
 .cli-prodtbl{width:auto;min-width:420px;max-width:600px}
+.cli-ordtbl{width:auto;min-width:460px;max-width:680px}
 #pg-clientes td.num,#pg-clientes th.num{text-align:right}
 .cli-prodtbl td.num,.cli-prodtbl th.num{text-align:right}
 .cli-prodtbl td:first-child,.cli-prodtbl th:first-child{text-align:left}
@@ -1053,7 +1054,7 @@ function clienteStats(nombre){
   const vends=[...new Set(ps.map(p=>p.vendedor).filter(Boolean))];
   return {n:ps.length, nF:psF.length, pedidas:sum(ps), ent:sum(ps.filter(isEnt)), pend:sum(ps.filter(isPend)),
           pedidasF:sum(psF), entF:sum(psF.filter(isEnt)), pendF:sum(psF.filter(isPend)),
-          byProd, last:fechas.length?fechas[fechas.length-1]:'', vends, hasOther:ps.length>psF.length, ps};
+          byProd, last:fechas.length?fechas[fechas.length-1]:'', vends, hasOther:ps.length>psF.length, ps, psF};
 }
 function clientRoster(){
   const map=new Map();
@@ -1065,30 +1066,36 @@ async function registrarCliente(nombre){const n=(nombre||'').trim();if(!n)return
 function fdate(s){return s?s.split('-').reverse().join('/'):'—';}
 function renderClientes(){
   const q=normName(document.getElementById('cli-q')&&document.getElementById('cli-q').value||'');
+  const fam=famFilter!=='Todos';
   const roster=clientRoster();
-  const rows=roster.map(c=>({c,st:clienteStats(c.nombre)}));
-  const conPed=rows.filter(x=>x.st.n>0).length;
+  const rows0=roster.map(c=>({c,st:clienteStats(c.nombre)}));
+  // métricas según el lente (Todos = toda la cartera; familia = solo esa familia)
+  const val=st=>fam?{n:st.nF,ped:st.pedidasF,ent:st.entF,pend:st.pendF}:{n:st.n,ped:st.pedidas,ent:st.ent,pend:st.pend};
+  const conPed=rows0.filter(x=>val(x.st).n>0).length;
   const totUdsF=DB.pedidos.filter(p=>famOk(p.prod)).reduce((s,p)=>s+(p.uds||0),0);
-  const ranked=rows.filter(x=>x.st.pedidas>0).slice().sort((a,b)=>b.st.pedidas-a.st.pedidas);
+  const ranked=rows0.map(x=>({c:x.c,v:val(x.st)})).filter(x=>x.v.ped>0).sort((a,b)=>b.v.ped-a.v.ped);
   const top=ranked[0];
   document.getElementById('cli-kpis').innerHTML=`
-    <div class="kpi"><div class="v">${fmt(roster.length)}</div><div class="l">Clientes</div></div>
-    <div class="kpi"><div class="v">${fmt(conPed)}</div><div class="l">Con pedidos</div></div>
-    <div class="kpi"><div class="v">${fmt(totUdsF)}</div><div class="l">Uds. pedidas${famFilter==='Todos'?'':' ('+famFilter+')'}</div></div>
-    <div class="kpi"><div class="v" style="font-size:17px;line-height:1.2">${top?top.c.nombre:'—'}</div><div class="l">Mayor comprador</div>${top?`<div class="s">${fmt(top.st.pedidas)} u</div>`:''}</div>`;
-  let fl=rows;
+    <div class="kpi"><div class="v">${fmt(fam?conPed:roster.length)}</div><div class="l">${fam?'Clientes ('+famFilter+')':'Clientes'}</div></div>
+    <div class="kpi"><div class="v">${fmt(conPed)}</div><div class="l">Con pedidos${fam?' ('+famFilter+')':''}</div></div>
+    <div class="kpi"><div class="v">${fmt(totUdsF)}</div><div class="l">Uds. pedidas${fam?' ('+famFilter+')':''}</div></div>
+    <div class="kpi"><div class="v" style="font-size:17px;line-height:1.2">${top?top.c.nombre:'—'}</div><div class="l">Mayor comprador</div>${top?`<div class="s">${fmt(top.v.ped)} u</div>`:''}</div>`;
+  let fl=rows0;
+  // al elegir una familia, limpia la lista: solo clientes con pedidos de esa familia
+  if(fam)fl=fl.filter(x=>x.st.nF>0);
   if(q)fl=fl.filter(x=>normName(x.c.nombre).includes(q)||normName(x.c.vendedor).includes(q));
-  fl=fl.slice().sort((a,b)=>(b.st.pedidas-a.st.pedidas)||a.c.nombre.localeCompare(b.c.nombre));
+  fl=fl.slice().sort((a,b)=>(val(b.st).ped-val(a.st).ped)||a.c.nombre.localeCompare(b.c.nombre));
   const tb=document.getElementById('cli-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="7" class="empty">Sin clientes</td></tr>';return;}
+  if(!fl.length){tb.innerHTML=`<tr><td colspan="7" class="empty">${fam?'Ningún cliente con pedidos de '+famFilter:'Sin clientes'}</td></tr>`;return;}
   tb.innerHTML=fl.map(({c,st})=>{
+    const v=val(st);
     const vend=c.vendedor||st.vends.join(', ');
     const nm=(c.nombre||'').replace(/'/g,"\\'");
-    // detalle: tabla por producto (familia activa)
+    // tabla por producto (familia activa)
     const prods=Object.keys(st.byProd).sort((a,b)=>st.byProd[b].ped-st.byProd[a].ped);
     let det;
     if(prods.length){
-      det=`<div class="cli-det-tt">Compras por producto${famFilter==='Todos'?'':' · '+famFilter}</div>
+      det=`<div class="cli-det-tt">Compras por producto${fam?' · '+famFilter:''}</div>
       <table class="subtbl cli-prodtbl"><thead><tr><th>Producto</th><th class="num">Pedidas</th><th class="num">Entregado</th><th class="num">Pendiente</th><th class="num">Pedidos</th></tr></thead><tbody>${
         prods.map(p=>{const b=st.byProd[p];const ens=CAT[p]&&CAT[p].fam==='Ensaladera';return `<tr><td><span class="prodtag ${ens?'ens':''}">${p}</span></td><td class="num mono">${fmt(b.ped)}</td><td class="num mono" style="color:var(--ok)">${fmt(b.ent)}</td><td class="num mono" style="color:${b.pend>0?'var(--mid)':'var(--text3)'}">${fmt(b.pend)}</td><td class="num mono">${fmt(b.n)}</td></tr>`;}).join('')
       }</tbody></table>`;
@@ -1097,7 +1104,16 @@ function renderClientes(){
     } else {
       det=`<div style="color:var(--text3);font-size:13px">Sin pedidos registrados.</div>`;
     }
-    const meta=`<div class="cli-det-meta"><span><b>Vendedor:</b> ${vend||'—'}</span><span><b>Pedidos:</b> ${fmt(st.n)}</span><span><b>Último pedido:</b> ${fdate(st.last)}</span>${c.contacto?`<span><b>Contacto:</b> ${c.contacto}</span>`:''}</div>`;
+    // detalle de pedidos con fecha (set según el lente)
+    const ordSet=(fam?st.psF:st.ps).slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    let ordTbl='';
+    if(ordSet.length){
+      ordTbl=`<div class="cli-det-tt" style="margin-top:14px">Detalle de pedidos</div>
+      <table class="subtbl cli-ordtbl"><thead><tr><th>Fecha pedido</th><th>Producto</th><th class="num">Uds</th><th>Entrega</th><th>Estado</th></tr></thead><tbody>${
+        ordSet.map(p=>{const ens=CAT[p.prod]&&CAT[p.prod].fam==='Ensaladera';return `<tr><td class="mono">${fdate(p.fecha)}</td><td><span class="prodtag ${ens?'ens':''}">${p.prod||'—'}</span></td><td class="num mono">${fmt(p.uds)}</td><td class="mono">${p.entrega?fdate(p.entrega):'<span style="color:var(--text3)">—</span>'}</td><td><span class="chip ${PEDCLS[p.estado]||'c-pend'}">${p.estado||'Pendiente'}</span></td></tr>`;}).join('')
+      }</tbody></table>`;
+    }
+    const meta=`<div class="cli-det-meta"><span><b>Vendedor:</b> ${vend||'—'}</span><span><b>Pedidos:</b> ${fmt(v.n)}</span><span><b>Último pedido:</b> ${fdate(st.last)}</span>${c.contacto?`<span><b>Contacto:</b> ${c.contacto}</span>`:''}</div>`;
     const obs=c.obs?`<div class="cli-det-obs">📝 ${c.obs}</div>`:'';
     const regBox=!c._reg?`<div class="cli-det-reg"><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();registrarCliente('${nm}')">➕ Registrar en la lista</button><span style="color:var(--text3);font-size:12px">Aparece en pedidos pero no está en tu lista de clientes.</span></div>`:'';
     const acts=c._reg
@@ -1106,12 +1122,12 @@ function renderClientes(){
     return `<tr class="clickable cli-row" onclick="toggleCliente(this)">
       <td><span class="chev">▸</span><b>${c.nombre}</b>${c._reg?'':'<span class="chip-noreg">no registrado</span>'}</td>
       <td>${vend||'<span style="color:var(--text3)">—</span>'}</td>
-      <td class="num mono">${fmt(st.n)}</td>
-      <td class="num mono">${fmt(st.pedidas)}</td>
-      <td class="num mono" style="color:var(--ok)">${fmt(st.ent)}</td>
-      <td class="num mono" style="color:${st.pend>0?'var(--mid)':'var(--text3)'}">${fmt(st.pend)}</td>
+      <td class="num mono">${fmt(v.n)}</td>
+      <td class="num mono">${fmt(v.ped)}</td>
+      <td class="num mono" style="color:var(--ok)">${fmt(v.ent)}</td>
+      <td class="num mono" style="color:${v.pend>0?'var(--mid)':'var(--text3)'}">${fmt(v.pend)}</td>
       <td class="acts">${acts}</td></tr>
-    <tr class="cli-detail" style="display:none"><td colspan="7"><div class="cli-det">${meta}${det}${obs}${regBox}</div></td></tr>`;
+    <tr class="cli-detail" style="display:none"><td colspan="7"><div class="cli-det">${meta}${det}${ordTbl}${obs}${regBox}</div></td></tr>`;
   }).join('');
 }
 function toggleCliente(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('cli-detail'))d.style.display=op?'table-row':'none';}
