@@ -148,6 +148,25 @@ tr.cli-row.open{background:var(--surf2)}
 .c-ent{background:var(--green-l);color:var(--green-d)}
 .c-parc{background:var(--green-l2);color:var(--green-dd)}
 .c-canc{background:var(--surf3);color:var(--text2)}
+.ped-est{appearance:none;-webkit-appearance:none;border:none;cursor:pointer;padding:3px 22px 3px 10px;border-radius:14px;font-size:11px;font-weight:700;font-family:inherit;background-repeat:no-repeat;background-position:right 7px center;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")}
+.ped-est:focus{outline:2px solid var(--green-l2)}
+.ped-est.c-pend{background-color:var(--mid-l);color:var(--mid)}
+.ped-est.c-ent{background-color:var(--green-l);color:var(--green-d)}
+.ped-est.c-parc{background-color:var(--green-l2);color:var(--green-dd)}
+.ped-est.c-canc{background-color:var(--surf3);color:var(--text2)}
+.ped-uds{display:flex;flex-direction:column;align-items:flex-end;gap:2px;background:none;border:none;cursor:pointer;font-family:inherit;padding:2px 0;width:100%}
+.ped-uds b{font-size:14px}
+.ped-saldo{font-size:10.5px;font-weight:600;color:var(--mid);white-space:nowrap}
+.ped-saldo.ok{color:var(--green-d)}
+.ped-saldo.add{color:var(--text3);font-weight:500}
+.ped-uds:hover .ped-saldo{text-decoration:underline}
+.ent-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 16px}
+.ent-kpi{background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
+.ent-kpi .v{font-family:'DM Mono',monospace;font-size:22px;font-weight:700}
+.ent-kpi .l{font-size:11px;color:var(--text3);margin-top:2px}
+.ent-sec-t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:8px}
+.ent-row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:7px;font-size:13.5px}
+.ent-row .sub{display:block;font-size:11.5px;color:var(--text3)}
 .prodtag{font-family:'DM Mono';font-weight:700;font-size:12px;padding:2px 8px;border-radius:5px;background:var(--cl-l);color:var(--cl)}
 .prodtag.ens{background:var(--en-l);color:var(--green-dd)}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -171,21 +190,6 @@ tr.cli-row.open{background:var(--surf2)}
 .chev-sp{display:inline-block;width:15px}
 .tbl-soft tr.stk-detail td{padding:0 0 8px;border:none;background:transparent}
 .tbl-soft tr.stk-detail:hover td{background:transparent}
-.boxdet{margin:0 14px 16px;background:var(--surf2);border:1px solid var(--border);border-radius:14px;overflow:hidden}
-.boxdet-h,.boxdet-r{display:flex;align-items:center;gap:10px;padding:10px 16px}
-.boxdet-h>span,.boxdet-r>span{flex:1 1 0;min-width:0}
-.boxdet-h>span:first-child,.boxdet-r>span:first-child{flex:2.2 1 0;min-width:150px}
-.boxdet-h{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);background:var(--surf3);border-bottom:1px solid var(--border)}
-.boxdet-h .v{text-align:right}
-.boxdet-r{font-size:14px;border-bottom:1px solid var(--border)}
-.boxdet-body .boxdet-r:last-child{border-bottom:none}
-.boxdet-r:hover{background:var(--surf)}
-.boxdet-r .sz{display:flex;flex-direction:column;line-height:1.25}
-.boxdet-r .sz b{font-weight:800;font-size:14.5px}
-.boxdet-r .sz small{color:var(--text3);font-size:11px;font-weight:500}
-.boxdet-r .v{text-align:right;font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums;font-size:14px}
-.boxdet-r .v.zero{color:var(--border2)}
-.boxdet-note{padding:9px 16px 11px;font-size:11.5px;color:var(--text3);background:var(--surf3);border-top:1px solid var(--border)}
 .crono-table{width:100%;border-collapse:separate;border-spacing:0;min-width:880px}
 .crono-table th,.crono-table td{border:1px solid var(--border2)}
 .crono-th{background:var(--surf2);font-size:12.5px;text-transform:capitalize;padding:8px 6px;text-align:center;color:var(--text);font-weight:700;position:static}
@@ -554,6 +558,22 @@ tr.cli-row.open{background:var(--surf2)}
   </div>
 </div>
 
+<div class="modal-ov" id="modal-entregas">
+  <div class="modal">
+    <h3 id="ent-title">Entregas</h3>
+    <div class="ent-kpis" id="ent-kpis"></div>
+    <div class="ent-sec-t">📦 Entregas registradas</div>
+    <div id="ent-list"></div>
+    <div class="ent-sec-t" style="margin-top:16px">➕ Registrar nueva entrega</div>
+    <div class="frow">
+      <div class="field"><label>Fecha</label><input type="date" id="ent-fecha"></div>
+      <div class="field"><label>Unidades entregadas</label><input type="number" id="ent-uds" inputmode="numeric" placeholder="0"></div>
+    </div>
+    <div class="frow c1"><div class="field"><label>Observación (opcional)</label><input type="text" id="ent-obs" placeholder="Remito, comentario…"></div></div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-entregas')">Cerrar</button><button class="btn btn-green" onclick="registrarEntrega()">+ Registrar entrega</button></div>
+  </div>
+</div>
+
 <!-- MODAL STOCK -->
 <div class="modal-ov" id="modal-stock">
   <div class="modal"><h3>Stock inicial</h3><div id="stock-modal-body"></div><div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-stock')">Cancelar</button><button class="btn btn-green" onclick="saveStock()">Guardar</button></div></div>
@@ -718,8 +738,10 @@ function bobsFam(){return DB.bobinas.filter(b=>famOk(b.prod));}
 function producido(p){return DB.bobinas.filter(b=>b.prod===p).reduce((s,b)=>s+(b.uds||0),0);}
 function cajasProd(p){return DB.bobinas.filter(b=>b.prod===p).reduce((s,b)=>s+(b.cajas||0),0);}
 function palletsProd(p){return DB.pallets.filter(x=>x.prod===p).length;}
-function vendido(p){return DB.pedidos.filter(x=>x.prod===p&&x.estado==='Entregado').reduce((s,x)=>s+(x.uds||0),0);}
-function enPedido(p){return DB.pedidos.filter(x=>x.prod===p&&(x.estado==='Pendiente'||x.estado==='Parcial')).reduce((s,x)=>s+(x.uds||0),0);}
+function pedEntregado(p){if(p.estado==='Entregado')return p.uds||0;const e=(p.entregas||[]).reduce((s,x)=>s+(x.uds||0),0);return Math.min(e,p.uds||e);}
+function pedPendiente(p){if(p.estado==='Cancelado')return 0;return Math.max(0,(p.uds||0)-pedEntregado(p));}
+function vendido(p){return DB.pedidos.filter(x=>x.prod===p).reduce((s,x)=>s+pedEntregado(x),0);}
+function enPedido(p){return DB.pedidos.filter(x=>x.prod===p&&x.estado!=='Cancelado'&&x.estado!=='Entregado').reduce((s,x)=>s+pedPendiente(x),0);}
 function stockCfg(p){return DB.stockConfig[p]||{ini:0,rech:0};}
 function ajustesProd(p){return (DB.ajustes||[]).filter(a=>a.prod===p).reduce((s,a)=>s+(a.cantidad||0),0);}
 function stockActual(p){const c=stockCfg(p);return (c.ini||0)+producido(p)-vendido(p)-(c.rech||0)+ajustesProd(p);}
@@ -845,7 +867,7 @@ function toggleDia(row){const d=row.nextElementSibling;const op=row.classList.to
 
 let stockSoloMov=true;
 function boxDetail(p,boxes){
-  return `<div class="boxdet"><div class="boxdet-h"><span>Tamaño de caja</span><span class="v">Stock (u)</span><span class="v">Stock (cajas)</span><span class="v">Stock (pallets)</span></div><div class="boxdet-body">${boxes.map(x=>`<div class="boxdet-r"><span class="sz"><b>${fmt(x.uxp)} u/caja</b>${x.cpp?`<small>${x.cpp} cajas por pallet</small>`:'<small>&nbsp;</small>'}</span><span class="v${x.stU?'':' zero'}">${fmt(x.stU)}</span><span class="v${x.stC?'':' zero'}">${fmt(x.stC)}</span><span class="v${x.stP?'':' zero'}">${x.stP}</span></div>`).join('')}</div><div class="boxdet-note">El stock disponible se reparte por tamaño de caja según lo producido (las ventas no registran el tipo de caja).</div></div>`;
+  return `<div class="subwrap"><table class="subtbl"><thead><tr><th>Tamaño de caja</th><th class="num">Stock (u)</th><th class="num">Stock (cajas)</th><th class="num">Stock (pallets)</th></tr></thead><tbody>${boxes.map(x=>`<tr><td><b>${fmt(x.uxp)}</b> u/caja${x.cpp?` · ${x.cpp} cajas/pallet`:''}</td><td class="num">${fmt(x.stU)}</td><td class="num">${fmt(x.stC)}</td><td class="num">${x.stP}</td></tr>`).join('')}</tbody></table><div class="card-note" style="margin:8px 0 2px">Estimado: el stock disponible se reparte por tamaño de caja (las ventas no registran el tipo de caja).</div></div>`;
 }
 function toggleStockRow(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('stk-detail'))d.style.display=op?'table-row':'none';}
 function tieneMov(p){return producido(p)>0||vendido(p)>0||stockActual(p)!==0||enPedido(p)>0||(stockCfg(p).ini||0)>0||ajustesProd(p)!==0;}
@@ -905,7 +927,7 @@ function renderPedidos(){
   const all=DB.pedidos.filter(p=>famOk(p.prod));
   const q=(document.getElementById('ped-q')?.value||'').toLowerCase().trim();
   const pend=all.filter(p=>p.estado==='Pendiente'||p.estado==='Parcial');
-  const udsPen=pend.reduce((s,p)=>s+(p.uds||0),0);
+  const udsPen=pend.reduce((s,p)=>s+pedPendiente(p),0);
   const venc=pend.filter(p=>{const u=pedUrgency(p);return u&&u.venc;}).length;
   document.getElementById('ped-kpis').innerHTML=`
     <div class="kpi"><div class="v">${fmt(all.length)}</div><div class="l">Pedidos</div><div class="s">${famFilter==='Todos'?'todas las familias':famFilter}</div></div>
@@ -922,15 +944,19 @@ function renderPedidos(){
   list.sort((a,b)=>{const ap=(a.estado==='Pendiente'||a.estado==='Parcial')?0:1,bp=(b.estado==='Pendiente'||b.estado==='Parcial')?0:1;if(ap!==bp)return ap-bp;if(ap===0)return (a.entrega||'9999').localeCompare(b.entrega||'9999');return (b.fecha||'').localeCompare(a.fecha||'');});
   const tb=document.getElementById('ped-tbody');
   if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty" style="padding:40px 0;text-align:center">No hay pedidos para este filtro</td></tr>';return;}
-  tb.innerHTML=list.map(p=>{const u=pedUrgency(p);return `<tr class="st-${p.estado||'Pendiente'}">
-      <td><span class="chip ${PEDCLS[p.estado]||''}">${p.estado||'Pendiente'}</span></td>
+  tb.innerHTML=list.map(p=>{const u=pedUrgency(p);const est=p.estado||'Pendiente';const ent=pedEntregado(p),pen=pedPendiente(p);
+    const estSel=`<select class="ped-est ${PEDCLS[est]||''}" onchange="cambiarEstadoRapido('${p.id}',this.value)" onclick="event.stopPropagation()">${['Pendiente','Parcial','Entregado','Cancelado'].map(s=>`<option value="${s}" ${s===est?'selected':''}>${s}</option>`).join('')}</select>`;
+    const saldo = ent>0 ? (pen>0?`<span class="ped-saldo">✓ ${fmt(ent)} · falta ${fmt(pen)}</span>`:`<span class="ped-saldo ok">✓ entregado</span>`) : (est==='Cancelado'?'':`<span class="ped-saldo add">📦 registrar entrega</span>`);
+    const udsCell=`<button class="ped-uds" onclick="openEntregas('${p.id}')" title="Ver y registrar entregas"><b>${fmt(p.uds)}</b>${saldo}</button>`;
+    return `<tr class="st-${est}">
+      <td>${estSel}</td>
       <td><b>${p.cliente||'—'}</b>${p.obs?`<span class="sub">${p.obs}</span>`:''}<span class="sub" style="color:var(--text3)">Pedido ${(p.fecha||'').slice(5)||'s/f'}</span></td>
       <td><span class="prodtag ${CAT[p.prod]?.fam==='Ensaladera'?'ens':''}">${p.prod}</span></td>
-      <td class="mono"><b>${fmt(p.uds)}</b></td>
+      <td class="mono">${udsCell}</td>
       <td>${p.entrega?`<div class="dlv"><span>${(p.entrega).slice(5)}</span>${u?`<span class="urg ${u.cls}">${u.txt}</span>`:''}</div>`:'<span style="color:var(--text3)">—</span>'}</td>
       <td>${p.oc||'<span style="color:var(--text3)">—</span>'}</td>
       <td>${p.vendedor||'<span style="color:var(--text3)">—</span>'}</td>
-      <td class="acts"><button class="linkact" onclick="openPedido('${p.id}')">✏️</button><button class="linkact del" onclick="delPedido('${p.id}')">🗑</button></td>
+      <td class="acts"><button class="linkact" onclick="openPedido('${p.id}')" title="Editar (cantidades, fecha…)">✏️</button><button class="linkact del" onclick="delPedido('${p.id}')">🗑</button></td>
     </tr>`;}).join('');
 }
 function fltPed(f){fltPedido=f;document.querySelectorAll('#ped-fseg button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));renderPedidos();}
@@ -952,6 +978,56 @@ function openPedido(id){editPedId=id||null;document.getElementById('ped-title').
   document.getElementById('modal-ped').classList.add('show');}
 async function savePedido(){const o={fecha:gv('pd-fecha'),cliente:gv('pd-cli').trim(),prod:gv('pd-prod'),uds:parseInt(gv('pd-uds'))||0,estado:gv('pd-estado'),entrega:gv('pd-entrega'),oc:gv('pd-oc'),obs:gv('pd-obs')};if(!o.cliente)return toast('Poné el cliente','warn');if(editPedId){const p=DB.pedidos.find(x=>x.id===editPedId);Object.assign(p,o);}else{o.id=Date.now()+'_'+Math.random().toString(36).slice(2,6);DB.pedidos.push(o);}closeModal('modal-ped');const ok=await saveToCloud();if(ok)toast('Pedido guardado ✓');}
 async function delPedido(id){if(!confirm('¿Borrar este pedido?'))return;DB.pedidos=DB.pedidos.filter(p=>p.id!==id);const ok=await saveToCloud();if(ok)toast('Pedido borrado');}
+
+// ── cambio rápido de estado desde la lista ──
+async function cambiarEstadoRapido(id,val){
+  const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
+  p.estado=val;
+  renderPedidos();
+  const ok=await saveToCloud();if(ok)toast('Estado: '+val);
+  if(val==='Parcial'&&!(p.entregas&&p.entregas.length))openEntregas(id);
+}
+// ── entregas parciales ──
+let entPedId=null;
+function recomputeEstadoPed(p){
+  if(p.estado==='Cancelado')return;
+  const ent=(p.entregas||[]).reduce((s,x)=>s+(x.uds||0),0);
+  p.estado = ent<=0?'Pendiente' : (ent>=(p.uds||0)?'Entregado':'Parcial');
+}
+function openEntregas(id){
+  const p=DB.pedidos.find(x=>x.id===id);if(!p)return;entPedId=id;
+  if(!p.entregas)p.entregas=[];
+  document.getElementById('ent-title').textContent=`${p.cliente||'—'} · ${p.prod} · ${fmt(p.uds)} u`;
+  sv('ent-fecha',new Date().toISOString().split('T')[0]);sv('ent-uds','');sv('ent-obs','');
+  renderEntregas();
+  document.getElementById('modal-entregas').classList.add('show');
+}
+function renderEntregas(){
+  const p=DB.pedidos.find(x=>x.id===entPedId);if(!p)return;
+  const ent=pedEntregado(p),pen=pedPendiente(p);
+  document.getElementById('ent-kpis').innerHTML=`
+    <div class="ent-kpi"><div class="v">${fmt(p.uds)}</div><div class="l">Pedido</div></div>
+    <div class="ent-kpi"><div class="v" style="color:var(--ok)">${fmt(ent)}</div><div class="l">Entregado</div></div>
+    <div class="ent-kpi"><div class="v" style="color:${pen>0?'var(--mid)':'var(--text3)'}">${fmt(pen)}</div><div class="l">Pendiente</div></div>`;
+  const lst=p.entregas||[];
+  document.getElementById('ent-list').innerHTML=lst.length?lst.map((e,i)=>`<div class="ent-row"><div><b class="mono">${fmt(e.uds)}</b> u <span style="color:var(--text3)">· ${(e.fecha||'').slice(5)||'s/f'}</span>${e.obs?`<span class="sub">${e.obs}</span>`:''}</div><button class="linkact del" onclick="delEntrega(${i})">🗑</button></div>`).join(''):'<div class="empty" style="padding:12px 0">Todavía no se registró ninguna entrega</div>';
+  document.getElementById('ent-uds').placeholder=pen>0?('falta '+fmt(pen)):'0';
+}
+async function registrarEntrega(){
+  const p=DB.pedidos.find(x=>x.id===entPedId);if(!p)return;
+  const uds=parseInt(gv('ent-uds'))||0;if(uds<=0)return toast('Poné las unidades entregadas','warn');
+  if(!p.entregas)p.entregas=[];
+  p.entregas.push({fecha:gv('ent-fecha')||new Date().toISOString().split('T')[0],uds,obs:gv('ent-obs').trim()});
+  recomputeEstadoPed(p);
+  sv('ent-uds','');sv('ent-obs','');
+  renderEntregas();renderPedidos();
+  const ok=await saveToCloud();if(ok)toast('Entrega registrada ✓');
+}
+async function delEntrega(i){
+  const p=DB.pedidos.find(x=>x.id===entPedId);if(!p||!p.entregas)return;
+  p.entregas.splice(i,1);recomputeEstadoPed(p);
+  renderEntregas();renderPedidos();await saveToCloud();
+}
 
 // ════════ STOCK ════════
 function openStock(){const rows=[];for(let i=0;i<PRODS.length;i+=2){const a=PRODS[i],b=PRODS[i+1];rows.push(`<div class="frow"><div class="field"><label>${a} — stock inicial</label><input type="number" id="sk-ini-${a}" value="${stockCfg(a).ini||0}"></div>${b?`<div class="field"><label>${b} — stock inicial</label><input type="number" id="sk-ini-${b}" value="${stockCfg(b).ini||0}"></div>`:'<div class="field"></div>'}</div>`);}document.getElementById('stock-modal-body').innerHTML=rows.join('');document.getElementById('modal-stock').classList.add('show');}
@@ -1196,7 +1272,7 @@ function renderAnual(){
   const vends=[...new Set(DB.pedidos.filter(p=>p.vendedor).map(p=>p.vendedor))];
   const vEl=document.getElementById('anual-vend');
   if(!vends.length){vEl.innerHTML='<tr><td colspan="4" class="empty">Sin vendedores cargados en los pedidos</td></tr>';}
-  else{vEl.innerHTML=vends.map(v=>{const vp=peds.filter(p=>p.vendedor===v);const ve=vp.filter(p=>p.estado==='Entregado').reduce((s,p)=>s+(p.uds||0),0);const vpe=vp.filter(p=>p.estado==='Pendiente'||p.estado==='Parcial').reduce((s,p)=>s+(p.uds||0),0);const tt=vp.reduce((s,p)=>s+(p.uds||0),0);return `<tr><td style="font-weight:600">${v}</td><td class="mono">${fmt(tt)}</td><td class="mono" style="color:var(--ok)">${fmt(ve)}</td><td class="mono" style="color:var(--mid)">${fmt(vpe)}</td></tr>`;}).join('');}
+  else{vEl.innerHTML=vends.map(v=>{const vp=peds.filter(p=>p.vendedor===v);const ve=vp.reduce((s,p)=>s+pedEntregado(p),0);const vpe=vp.reduce((s,p)=>s+pedPendiente(p),0);const tt=vp.reduce((s,p)=>s+(p.uds||0),0);return `<tr><td style="font-weight:600">${v}</td><td class="mono">${fmt(tt)}</td><td class="mono" style="color:var(--ok)">${fmt(ve)}</td><td class="mono" style="color:var(--mid)">${fmt(vpe)}</td></tr>`;}).join('');}
 }
 
 // ════════ CLIENTES ════════
@@ -1208,11 +1284,11 @@ function clienteStats(nombre){
   const isEnt=p=>p.estado==='Entregado', isPend=p=>p.estado==='Pendiente'||p.estado==='Parcial';
   const psF=ps.filter(p=>famOk(p.prod));
   const byProd={};
-  psF.forEach(p=>{const k=p.prod||'?';const b=byProd[k]||(byProd[k]={ped:0,ent:0,pend:0,n:0});b.ped+=(p.uds||0);b.n++;if(isEnt(p))b.ent+=(p.uds||0);if(isPend(p))b.pend+=(p.uds||0);});
+  psF.forEach(p=>{const k=p.prod||'?';const b=byProd[k]||(byProd[k]={ped:0,ent:0,pend:0,n:0});b.ped+=(p.uds||0);b.n++;b.ent+=pedEntregado(p);b.pend+=pedPendiente(p);});
   const fechas=ps.map(p=>p.fecha).filter(Boolean).sort();
   const vends=[...new Set(ps.map(p=>p.vendedor).filter(Boolean))];
-  return {n:ps.length, nF:psF.length, pedidas:sum(ps), ent:sum(ps.filter(isEnt)), pend:sum(ps.filter(isPend)),
-          pedidasF:sum(psF), entF:sum(psF.filter(isEnt)), pendF:sum(psF.filter(isPend)),
+  return {n:ps.length, nF:psF.length, pedidas:sum(ps), ent:ps.reduce((s,p)=>s+pedEntregado(p),0), pend:ps.reduce((s,p)=>s+pedPendiente(p),0),
+          pedidasF:sum(psF), entF:psF.reduce((s,p)=>s+pedEntregado(p),0), pendF:psF.reduce((s,p)=>s+pedPendiente(p),0),
           byProd, last:fechas.length?fechas[fechas.length-1]:'', vends, hasOther:ps.length>psF.length, ps, psF};
 }
 function clientRoster(){
