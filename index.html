@@ -638,6 +638,34 @@ tr.cli-row.open{background:var(--surf2)}
   </div>
 </div>
 
+<div class="modal-ov" id="modal-editprod">
+  <div class="modal">
+    <h3>Editar producción</h3>
+    <div class="frow">
+      <div class="field"><label>Fecha</label><input type="date" id="eb-fecha"></div>
+      <div class="field"><label>Turno</label><select id="eb-turno"><option>M1</option><option>M2</option><option>N</option></select></div>
+    </div>
+    <div class="frow">
+      <div class="field"><label>Producto</label><select id="eb-prod"></select></div>
+      <div class="field"><label>Unidades por caja</label><input type="number" id="eb-uxp" placeholder="0"></div>
+    </div>
+    <div class="frow">
+      <div class="field"><label>Unidades producidas</label><input type="number" id="eb-uds" placeholder="0"></div>
+      <div class="field"><label>Kg consumidos</label><input type="number" id="eb-kg" placeholder="0"></div>
+    </div>
+    <div class="frow">
+      <div class="field"><label>N° Bobina</label><input type="text" id="eb-nbob" placeholder="—"></div>
+      <div class="field"><label>Partida</label><input type="text" id="eb-partida" placeholder="—"></div>
+    </div>
+    <div class="frow c1"><div class="field"><label>Operarios (separados por coma)</label><input type="text" id="eb-ops" placeholder="Nombre 1, Nombre 2"></div></div>
+    <div class="frow c1"><div class="field"><label>Observaciones</label><input type="text" id="eb-obs"></div></div>
+    <div class="modal-foot" style="justify-content:space-between">
+      <button class="btn btn-outline" style="color:var(--bad);border-color:#f0cfcf" onclick="delBobinaFromModal()">🗑 Borrar</button>
+      <div style="display:flex;gap:8px"><button class="btn btn-outline" onclick="closeModal('modal-editprod')">Cancelar</button><button class="btn btn-green" onclick="saveBobina()">Guardar</button></div>
+    </div>
+  </div>
+</div>
+
 
 <!-- MODAL STOCK -->
 <div class="modal-ov" id="modal-stock">
@@ -773,12 +801,12 @@ async function saveToCloud(){
     const payload={
       pedidos:DB.pedidos,clientes:DB.clientes,ajustes:DB.ajustes,cronograma:DB.cronograma,stockConfig:DB.stockConfig,
       pallets:pick('pallets'),cierres:pick('cierres'),operarios:pick('operarios'),
-      bobinas: prodDirty ? mergeById(DB.bobinas,latest.bobinas) : pick('bobinas')
+      bobinas: prodDirty ? mergeById(DB.bobinas,latest.bobinas).filter(b=>!bobinasDeleted.has(b.id)) : pick('bobinas')
     };
     const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey},body:JSON.stringify(payload)});
     if(!res.ok)throw new Error('HTTP '+res.status);
     DB.bobinas=payload.bobinas;DB.pallets=payload.pallets;DB.cierres=payload.cierres;DB.operarios=payload.operarios;
-    prodDirty=false;dirty=false;setSync('ok','Guardado');renderAll();return true;
+    prodDirty=false;bobinasDeleted.clear();dirty=false;setSync('ok','Guardado');renderAll();return true;
   }catch(e){setSync('err','SIN GUARDAR en nube');toast('No se pudo guardar en la nube ('+e.message+'). Quedó en este equipo — reintentá con ↻ Actualizar o revisá la conexión.','err');renderAll();return false;}
 }
 
@@ -946,7 +974,7 @@ function renderProduccion(){
   // efic por dia: sum uds / sum objetivo de (turno,prod) presentes ese dia
   Object.keys(byD).forEach(f=>{const sub=bobs.filter(b=>b.fecha===f);const g={};sub.forEach(b=>{const k=b.turno+'|'+b.prod;g[k]=(g[k]||0)+(b.uds||0);});let o=0;Object.keys(g).forEach(k=>{const[t,p]=k.split('|');o+=objetivoTurno(p,t);});byD[f].efic=o>0?Math.round(byD[f].uds/o*100):null;});
   const fechas=Object.keys(byD).sort((a,b)=>b.localeCompare(a));
-  const detTbl=f=>{const bb=bobs.filter(b=>b.fecha===f).sort((a,b)=>(a.turno+a.prod).localeCompare(b.turno+b.prod));return `<div class="subwrap"><table class="subtbl"><thead><tr><th>Turno</th><th>Prod</th><th>N° Bob</th><th>Partida</th><th>Kg</th><th>Cajas</th><th>Unidades</th><th>Operarios</th></tr></thead><tbody>${bb.map(b=>`<tr><td><span class="turno-pill">${b.turno}</span></td><td><span class="prodtag ${CAT[b.prod]?.fam==='Ensaladera'?'ens':''}">${b.prod}</span></td><td class="mono">${b.nbob||'—'}</td><td>${b.partida||'—'}</td><td class="mono">${fmt(b.kg)}</td><td class="mono">${fmt(b.cajas)}</td><td class="mono">${fmt(b.uds)}</td><td style="font-size:12px;white-space:normal">${(b.operarios||[]).join(', ')||'—'}</td></tr>`).join('')}</tbody></table></div>`;};
+  const detTbl=f=>{const bb=bobs.filter(b=>b.fecha===f).sort((a,b)=>(a.turno+a.prod).localeCompare(b.turno+b.prod));return `<div class="subwrap"><table class="subtbl"><thead><tr><th>Turno</th><th>Prod</th><th>N° Bob</th><th>Partida</th><th>Kg</th><th>Cajas</th><th>Unidades</th><th>Operarios</th><th>Acciones</th></tr></thead><tbody>${bb.map(b=>`<tr><td><span class="turno-pill">${b.turno}</span></td><td><span class="prodtag ${CAT[b.prod]?.fam==='Ensaladera'?'ens':''}">${b.prod}</span></td><td class="mono">${b.nbob||'—'}</td><td>${b.partida||'—'}</td><td class="mono">${fmt(b.kg)}</td><td class="mono">${fmt(b.cajas)}</td><td class="mono">${fmt(b.uds)}</td><td style="font-size:12px;white-space:normal">${(b.operarios||[]).join(', ')||'—'}</td><td class="acts" style="white-space:nowrap">${b.id?`<button class="linkact" onclick="editBobina('${b.id}')" title="Editar">✏️</button><button class="linkact del" onclick="delBobina('${b.id}')" title="Borrar">🗑</button>`:'<span style="color:var(--text3);font-size:11px">—</span>'}</td></tr>`).join('')}</tbody></table></div>`;};
   document.getElementById('prod-dias').innerHTML=fechas.length?fechas.map(f=>{const x=byD[f];const dd=new Date(f+'T00:00');const lbl=dd.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});return `<tr class="clickable dayrow" onclick="toggleDia(this)"><td><span class="chev">▸</span><b>${lbl}</b></td><td>${[...x.turnos].map(t=>`<span class="turno-pill">${t}</span>`).join(' ')}</td><td style="font-size:12px;color:var(--text2);white-space:normal">${[...x.prods].join(', ')}</td><td class="mono">${fmt(x.cajas)}</td><td class="mono">${fmt(x.uds)}</td><td class="mono">${fmt(x.kg)}</td><td>${x.efic!==null?eTag(x.efic):'—'}</td></tr><tr class="day-detail" style="display:none"><td colspan="7">${detTbl(f)}</td></tr>`;}).join(''):'<tr><td colspan="7" class="empty">Sin producción para el filtro</td></tr>';
 }
 function toggleDia(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('day-detail'))d.style.display=op?'table-row':'none';}
@@ -1372,6 +1400,33 @@ async function guardarRegistro(){
   if(ok){toast('Registro guardado ✓');limpiarRegistro();}
 }
 function limpiarRegistro(){['reg-turno','reg-prod','reg-uds','reg-uxp','reg-cajas','reg-nbob','reg-partida','reg-kg','reg-ops','reg-obs'].forEach(id=>sv(id,''));regCajaOpts();}
+let editBobId=null;
+const bobinasDeleted=new Set();
+function editBobina(id){
+  const b=DB.bobinas.find(x=>x.id===id);if(!b)return;editBobId=id;
+  document.getElementById('eb-prod').innerHTML=PRODS.map(p=>`<option>${p}</option>`).join('');
+  sv('eb-fecha',b.fecha||'');sv('eb-turno',b.turno||'M1');sv('eb-prod',b.prod||PRODS[0]);sv('eb-uxp',b.uxp||'');sv('eb-uds',b.uds||'');sv('eb-kg',b.kg||'');sv('eb-nbob',b.nbob||'');sv('eb-partida',b.partida||'');sv('eb-ops',(b.operarios||[]).join(', '));sv('eb-obs',b.obs||'');
+  document.getElementById('modal-editprod').classList.add('show');
+}
+async function saveBobina(){
+  const b=DB.bobinas.find(x=>x.id===editBobId);if(!b)return;
+  const prod=gv('eb-prod'),uds=parseInt(gv('eb-uds'))||0,uxp=parseInt(gv('eb-uxp'))||0;
+  if(!gv('eb-fecha'))return toast('Poné la fecha','warn');
+  if(uds<=0)return toast('Ingresá las unidades producidas','warn');
+  b.fecha=gv('eb-fecha');b.turno=gv('eb-turno');b.prod=prod;b.fam=CAT[prod]?CAT[prod].fam:b.fam;
+  b.uxp=uxp;b.uds=uds;b.cajas=uxp>0?Math.round(uds/uxp):(b.cajas||0);b.kg=parseInt(gv('eb-kg'))||0;
+  b.nbob=gv('eb-nbob').trim();b.partida=gv('eb-partida').trim();
+  b.operarios=gv('eb-ops').split(',').map(x=>x.trim()).filter(Boolean);b.obs=gv('eb-obs').trim();
+  prodDirty=true;closeModal('modal-editprod');
+  const ok=await saveToCloud();if(ok)toast('Producción actualizada ✓');
+}
+async function delBobina(id){
+  const b=DB.bobinas.find(x=>x.id===id);if(!b)return;
+  if(!confirm(`¿Borrar esta producción?\n${b.prod} · ${(b.fecha||'').slice(5)} · ${fmt(b.uds)} u\n\nNo se puede deshacer.`))return;
+  DB.bobinas=DB.bobinas.filter(x=>x.id!==id);bobinasDeleted.add(id);prodDirty=true;
+  const ok=await saveToCloud();if(ok)toast('Producción borrada');
+}
+function delBobinaFromModal(){const id=editBobId;closeModal('modal-editprod');if(id)delBobina(id);}
 
 // ════════ AJUSTE DE STOCK ════════
 function openAjuste(){document.getElementById('aj-prod').innerHTML='<option value="">— Seleccionar —</option>'+PRODS.map(p=>`<option>${p}</option>`).join('');sv('aj-prod','');sv('aj-tipo','alta');sv('aj-uds','');sv('aj-motivo','');document.getElementById('modal-ajuste').classList.add('show');}
