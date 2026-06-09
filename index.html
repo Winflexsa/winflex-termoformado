@@ -352,6 +352,17 @@ tr.cli-row.open{background:var(--surf2)}
 .ped-saldo{display:block;font-size:11px;color:var(--mid);font-weight:600;margin-top:1px}
 .ped-saldo.ok{color:var(--ok)}
 .ped-saldo.add{color:var(--text3)}
+.amesrow{cursor:pointer}
+.amesrow:hover{background:var(--surf2)}
+.amesdet-panel{background:var(--surf2);padding:14px 18px}
+.amesdet-stats{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:12px}
+.amesdet-stats .kv-l{display:block;font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.03em}
+.amesdet-stats .kv-v{display:block;font-size:15px;font-weight:700;margin-top:2px;font-family:'DM Mono',monospace}
+.amesdet-tbl{width:100%;border-collapse:collapse;background:var(--surf);border-radius:10px;overflow:hidden}
+.amesdet-tbl th{font-size:11px;text-align:left;padding:7px 10px;background:var(--surf3);color:var(--text3);font-weight:700;text-transform:uppercase}
+.amesdet-tbl th.num{text-align:right}
+.amesdet-tbl td{padding:7px 10px;border-top:1px solid var(--border);font-size:13px}
+.amesdet-tbl td.num{text-align:right}
 </style>
 </head>
 <body>
@@ -501,7 +512,7 @@ tr.cli-row.open{background:var(--surf2)}
       <div class="page-head"><div><div class="page-title">Resumen anual</div><div class="page-sub" id="anual-sub">Totales acumulados</div></div><div class="head-act"><div class="seg fam-seg-ctl"><button data-f="Todos" class="on" onclick="setFam('Todos')">Todos</button><button data-f="Clamshell" onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera" onclick="setFam('Ensaladera')">Ensaladera</button></div><select id="anual-anio" onchange="renderAnual()" style="background:var(--surf);border:1px solid var(--border2);border-radius:8px;padding:8px 11px;font-family:inherit;font-size:13px;color:var(--text)"></select><button class="btn btn-xls btn-sm" onclick="exportExcel('anual')">⬇ Excel</button></div></div>
       <div class="kpis" id="anual-kpis" style="grid-template-columns:repeat(5,1fr)"></div>
       <div class="grid2">
-        <div class="card"><div class="card-title">Producción mensual</div><div class="tbl-wrap"><table><thead><tr><th>Mes</th><th>Clamshell</th><th>Ensaladera</th><th>Total</th><th>Cajas</th><th>Ef. operativa</th></tr></thead><tbody id="anual-prod"></tbody></table></div></div>
+        <div class="card"><div class="card-title">Producción mensual</div><div class="card-note">Tocá un mes para ver el detalle por producto y bajar su Excel.</div><div class="tbl-wrap"><table><thead><tr><th>Mes</th><th>Clamshell</th><th>Ensaladera</th><th>Total</th><th>Cajas</th><th>Ef. operativa</th></tr></thead><tbody id="anual-prod"></tbody></table></div></div>
         <div class="card"><div class="card-title">Pedidos por vendedor</div><div class="tbl-wrap"><table><thead><tr><th>Vendedor</th><th>Total uds</th><th>Entregado</th><th>Pendiente</th></tr></thead><tbody id="anual-vend"></tbody></table></div></div>
       </div>
     </div>
@@ -1406,13 +1417,70 @@ function renderAnual(){
     const g={};mb.forEach(b=>{const k=b.fecha+'|'+b.turno+'|'+b.prod;g[k]=(g[k]||0)+(b.uds||0);});
     let su=0,so=0;Object.keys(g).forEach(k=>{const a=k.split('|');const o=objetivoTurno(a[2],a[1]);if(o>0){su+=g[k];so+=o;}});
     const ef=so>0?Math.round(su/so*100):null;
-    rows+=`<tr><td>${m}</td><td class="mono">${cl?fmt(cl):'–'}</td><td class="mono">${en?fmt(en):'–'}</td><td class="mono" style="font-weight:700">${totm?fmt(totm):'–'}</td><td class="mono">${cj?fmt(cj):'–'}</td><td>${ef!==null?eTag(ef):'–'}</td></tr>`;
+    const has=mb.length>0;
+    const chev=has?`<span class="chev" id="amesc-${mi}">▸</span>`:'<span class="chev-sp"></span>';
+    rows+=`<tr class="${has?'amesrow':''}" ${has?`onclick="toggleAnualMes(${mi})"`:''}><td>${chev}${m}</td><td class="mono">${cl?fmt(cl):'–'}</td><td class="mono">${en?fmt(en):'–'}</td><td class="mono" style="font-weight:700">${totm?fmt(totm):'–'}</td><td class="mono">${cj?fmt(cj):'–'}</td><td>${ef!==null?eTag(ef):'–'}</td></tr>`;
+    if(has)rows+=`<tr id="amesd-${mi}" class="amesdet" style="display:none"><td colspan="6" style="padding:0">${anualMesDetalle(y,mi,mb)}</td></tr>`;
   });
   document.getElementById('anual-prod').innerHTML=rows;
   const vends=[...new Set(DB.pedidos.filter(p=>p.vendedor).map(p=>p.vendedor))];
   const vEl=document.getElementById('anual-vend');
   if(!vends.length){vEl.innerHTML='<tr><td colspan="4" class="empty">Sin vendedores cargados en los pedidos</td></tr>';}
   else{vEl.innerHTML=vends.map(v=>{const vp=peds.filter(p=>p.vendedor===v);const ve=vp.filter(p=>p.estado==='Entregado').reduce((s,p)=>s+(p.uds||0),0);const vpe=vp.filter(p=>p.estado==='Pendiente'||p.estado==='Parcial').reduce((s,p)=>s+(p.uds||0),0);const tt=vp.reduce((s,p)=>s+(p.uds||0),0);return `<tr><td style="font-weight:600">${v}</td><td class="mono">${fmt(tt)}</td><td class="mono" style="color:var(--ok)">${fmt(ve)}</td><td class="mono" style="color:var(--mid)">${fmt(vpe)}</td></tr>`;}).join('');}
+}
+function toggleAnualMes(mi){const d=document.getElementById('amesd-'+mi);if(!d)return;const open=d.style.display!=='none';d.style.display=open?'none':'table-row';const c=document.getElementById('amesc-'+mi);if(c)c.textContent=open?'▸':'▾';}
+function anualMesDetalle(y,mi,mb){
+  const dias=new Set(mb.map(b=>b.fecha)).size;
+  const turnos=new Set(mb.map(b=>b.fecha+'|'+b.turno)).size;
+  const kg=mb.reduce((s,b)=>s+(b.kg||0),0);
+  const prods=[...new Set(mb.map(b=>b.prod))];
+  const prowsArr=prods.map(p=>{
+    const pb=mb.filter(b=>b.prod===p);
+    const u=pb.reduce((s,b)=>s+(b.uds||0),0),c=pb.reduce((s,b)=>s+(b.cajas||0),0);
+    const d=new Set(pb.map(b=>b.fecha)).size;
+    const g={};pb.forEach(b=>{const k=b.fecha+'|'+b.turno;g[k]=(g[k]||0)+(b.uds||0);});
+    let su=0,so=0;Object.keys(g).forEach(k=>{const t=k.split('|')[1];const o=objetivoTurno(p,t);if(o>0){su+=g[k];so+=o;}});
+    return {p,u,c,d,ef:so>0?Math.round(su/so*100):null};
+  }).sort((a,b)=>b.u-a.u);
+  const prows=prowsArr.map(r=>`<tr><td><span class="prodtag ${CAT[r.p]?.fam==='Ensaladera'?'ens':''}">${r.p}</span></td><td class="num mono">${fmt(r.u)}</td><td class="num mono">${fmt(r.c)}</td><td class="num mono">${r.d}</td><td>${r.ef!==null?eTag(r.ef):'–'}</td></tr>`).join('');
+  const mp=DB.pedidos.filter(p=>famOk(p.prod)&&p.fecha&&new Date(p.fecha+'T00:00').getFullYear()==y&&new Date(p.fecha+'T00:00').getMonth()===mi);
+  const mpUds=mp.reduce((s,p)=>s+(p.uds||0),0),mpEnt=mp.reduce((s,p)=>s+pedEntregado(p),0);
+  return `<div class="amesdet-panel">
+    <div class="amesdet-stats">
+      <div><span class="kv-l">Días con producción</span><span class="kv-v">${dias}</span></div>
+      <div><span class="kv-l">Turnos trabajados</span><span class="kv-v">${turnos}</span></div>
+      <div><span class="kv-l">Kg consumidos</span><span class="kv-v">${fmt(kg)}</span></div>
+      <div><span class="kv-l">Pedidos del mes</span><span class="kv-v">${mp.length}</span></div>
+      ${mp.length?`<div><span class="kv-l">Uds. pedidas / entregadas</span><span class="kv-v">${fmt(mpUds)} / ${fmt(mpEnt)}</span></div>`:''}
+    </div>
+    <table class="amesdet-tbl"><thead><tr><th>Producto</th><th class="num">Unidades</th><th class="num">Cajas</th><th class="num">Días</th><th>Ef. operativa</th></tr></thead><tbody>${prows||'<tr><td colspan="5" class="empty">Sin producción</td></tr>'}</tbody></table>
+    <div style="margin-top:12px;text-align:right"><button class="btn btn-xls btn-sm" onclick="event.stopPropagation();exportExcelMes('${y}',${mi})">⬇ Excel de ${MESES[mi]} ${y}</button></div>
+  </div>`;
+}
+async function exportExcelMes(y,mi){
+  try{toast('Generando Excel…');await loadExcelJS();}catch(e){return toast('No se pudo cargar el módulo Excel. Revisá la conexión.','err');}
+  try{
+    const wb=new ExcelJS.Workbook();wb.creator='Winflex';wb.created=new Date();
+    const mesNom=MESES[mi];
+    const famTxt=famFilter==='Todos'?'Todas las familias':'Familia: '+famFilter;
+    const sub=famTxt+'   ·   Generado '+new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const mb=DB.bobinas.filter(b=>famOk(b.prod)&&new Date(b.fecha+'T00:00').getFullYear()==y&&new Date(b.fecha+'T00:00').getMonth()===mi);
+    if(!mb.length&&!DB.pedidos.some(p=>p.fecha&&new Date(p.fecha+'T00:00').getFullYear()==y&&new Date(p.fecha+'T00:00').getMonth()===mi))return toast('No hay datos para '+mesNom+' '+y,'warn');
+    const prods=[...new Set(mb.map(b=>b.prod))];
+    const prowsArr=prods.map(p=>{const pb=mb.filter(b=>b.prod===p);const u=pb.reduce((s,b)=>s+(b.uds||0),0),c=pb.reduce((s,b)=>s+(b.cajas||0),0),kg=pb.reduce((s,b)=>s+(b.kg||0),0);const d=new Set(pb.map(b=>b.fecha)).size;const g={};pb.forEach(b=>{const k=b.fecha+'|'+b.turno;g[k]=(g[k]||0)+(b.uds||0);});let su=0,so=0;Object.keys(g).forEach(k=>{const t=k.split('|')[1];const o=objetivoTurno(p,t);if(o>0){su+=g[k];so+=o;}});return {p,fa:CAT[p]?.fam||'',u,c,kg:Math.round(kg),d,e:so>0?Math.round(su/so*100):null};}).sort((a,b)=>b.u-a.u);
+    wfSheet(wb,'Resumen '+mesNom,'Producción de '+mesNom+' '+y,sub,
+      [{h:'Producto',k:'p',w:13},{h:'Familia',k:'fa',w:13},{h:'Unidades',k:'u',w:13,type:'num',total:true},{h:'Cajas',k:'c',w:11,type:'num',total:true},{h:'Kg',k:'kg',w:10,type:'num',total:true},{h:'Días',k:'d',w:8,type:'num'},{h:'Ef. operativa',k:'e',w:13,type:'pct'}],prowsArr);
+    const det=mb.slice().sort((a,b)=>(a.fecha+'').localeCompare(b.fecha+'')||(a.turno+'').localeCompare(b.turno+''));
+    wfSheet(wb,'Detalle '+mesNom,'Detalle de bobinas · '+mesNom+' '+y,sub,
+      [{h:'Fecha',k:'f',w:12},{h:'Turno',k:'t',w:8},{h:'Producto',k:'p',w:12},{h:'N° Bob.',k:'nb',w:10},{h:'Partida',k:'pa',w:12},{h:'Kg',k:'kg',w:10,type:'num',total:true},{h:'Cajas',k:'c',w:10,type:'num',total:true},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Operarios',k:'op',w:22}],
+      det.map(b=>({f:b.fecha,t:b.turno,p:b.prod,nb:b.nbob||'',pa:b.partida||'',kg:b.kg||0,c:b.cajas||0,u:b.uds||0,op:(b.operarios||[]).join(', ')})));
+    const mp=DB.pedidos.filter(p=>famOk(p.prod)&&p.fecha&&new Date(p.fecha+'T00:00').getFullYear()==y&&new Date(p.fecha+'T00:00').getMonth()===mi).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    if(mp.length)wfSheet(wb,'Pedidos '+mesNom,'Pedidos de '+mesNom+' '+y,sub,
+      [{h:'Fecha',k:'f',w:12},{h:'Cliente',k:'cl',w:24},{h:'Producto',k:'p',w:11},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Entregado',k:'ent',w:12,type:'num',total:true},{h:'Estado',k:'e',w:13,type:'estado'},{h:'Vendedor',k:'v',w:14}],
+      mp.map(p=>({f:p.fecha||'',cl:p.cliente||'',p:p.prod||'',u:p.uds||0,ent:pedEntregado(p),e:p.estado||'Pendiente',v:p.vendedor||''})));
+    await downloadWB(wb,'Winflex_'+mesNom+'_'+y+'.xlsx');
+    toast('Excel de '+mesNom+' generado ✓');
+  }catch(e){console.error(e);toast('Error generando Excel: '+e.message,'err');}
 }
 
 // ════════ CLIENTES ════════
