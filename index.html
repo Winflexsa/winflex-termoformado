@@ -176,8 +176,8 @@ tr.cli-row.open{background:var(--surf2)}
 .crono-th{background:var(--surf2);font-size:12.5px;text-transform:capitalize;padding:8px 6px;text-align:center;color:var(--text);font-weight:700;position:static}
 .crono-th-t{background:var(--surf2);width:84px;position:static}
 .crono-th-d{font-weight:500;color:var(--text3);font-size:11px;margin-top:1px}
-.crono-hoy{background:var(--green-l)!important}
-.crono-th.crono-hoy{color:var(--green-dd)}
+.crono-hoy{background:#edfaf2!important}
+.crono-th.crono-hoy{background:var(--green)!important;color:#fff}
 .crono-turno{text-align:center;background:var(--surf2);vertical-align:middle;width:84px;padding:8px 4px}
 .crono-rowlbl{font-weight:800;font-size:14px}
 .crono-rowh{font-size:11px;color:var(--text3);margin-top:3px}
@@ -188,15 +188,27 @@ tr.cli-row.open{background:var(--surf2)}
 .crono-seg button.on{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12)}
 .crono-seg button.on small{color:rgba(255,255,255,.9)}
 .crono-seg.ro button{cursor:default;flex:none;padding:6px 14px;flex-direction:row;gap:6px}
-.crono-chip{background:var(--cl-l);border-left:3px solid var(--cl);border-radius:7px;padding:6px 8px;margin-bottom:6px;cursor:pointer;font-size:12px;line-height:1.3;transition:transform .08s}
-.crono-chip.ens{background:var(--en-l);border-left-color:var(--en)}
-.crono-chip.evt{background:#fff4e6;border-left-color:#e8973a;color:#8a5212}
-.crono-chip.evt-ROTURA{background:#fdecec;border-left-color:#d9534f;color:#8a2a27}
-.crono-chip.evt-SINBOB{background:#eef1f5;border-left-color:#7a8aa0;color:#3d4a5c}
-.crono-chip.evt .cc-top{font-family:'DM Sans'}
-.crono-chip:hover{transform:translateY(-1px);filter:brightness(.98)}
-.cc-top{display:flex;align-items:center;justify-content:space-between;gap:6px;font-family:'DM Mono'}
+.crono-chip{background:var(--surf);border:1px solid var(--border);border-left:4px solid var(--cl);border-radius:9px;padding:7px 9px;margin-bottom:7px;cursor:pointer;font-size:12px;line-height:1.3;box-shadow:0 1px 3px rgba(20,60,40,.07);transition:transform .08s,box-shadow .08s}
+.crono-chip:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(20,60,40,.14)}
+.crono-chip.cl{border-left-color:#0d8f6f;background:linear-gradient(180deg,#f1fbf7,#fff)}
+.crono-chip.ens{border-left-color:#3bb273;background:linear-gradient(180deg,#f1fbf4,#fff)}
+.cc-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px}
+.cc-name{font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:#fff;padding:2px 10px;border-radius:7px;letter-spacing:.02em}
+.crono-chip.cl .cc-name{background:#0d8f6f}
+.crono-chip.ens .cc-name{background:#3bb273}
+.cc-prog{margin:5px 0 2px}
+.cc-bar{height:6px;border-radius:4px;background:#e6ece9;overflow:hidden;margin-bottom:3px}
+.cc-fill{height:100%;border-radius:4px;transition:width .3s}
+.cc-fill.pg-ok{background:#15a463}.cc-fill.pg-mid{background:#ef9a3d}.cc-fill.pg-low{background:#e35d52}
+.cc-prn{font-size:10.5px;font-weight:800}
+.cc-prn.pg-ok{color:#0e7a49}.cc-prn.pg-mid{color:#a5701a}.cc-prn.pg-low{color:#b3392f}.cc-prn.pg-real{color:#0e7a49}.cc-prn.pg-zero{color:var(--text3)}
 .cc-meta{font-family:'DM Sans';font-weight:700;font-size:10.5px;background:rgba(0,0,0,.07);padding:1px 7px;border-radius:9px;white-space:nowrap}
+.cc-ops{color:var(--text2);font-size:11px;margin-top:3px}
+.cc-obs{color:var(--text3);font-size:11px;font-style:italic;margin-top:2px}
+.crono-chip.evt{background:#fff7ec;border:1px solid #f3dcb8;border-left:4px solid #e8973a;color:#8a5212;box-shadow:0 1px 3px rgba(160,120,20,.08)}
+.crono-chip.evt-ROTURA{background:#fdeeee;border-color:#f3c9c6;border-left-color:#d9534f;color:#8a2a27}
+.crono-chip.evt-SINBOB{background:#eef1f5;border-color:#d9e0e8;border-left-color:#7a8aa0;color:#3d4a5c}
+.crono-chip.evt .cc-top{font-family:'DM Sans';margin-bottom:0}
 .cc-ops{color:var(--text2);font-size:11px;margin-top:3px}
 .cc-obs{color:var(--text3);font-size:11px;font-style:italic;margin-top:2px}
 .crono-add{display:block;width:100%;border:1.5px dashed var(--border2);background:none;color:var(--text3);border-radius:7px;padding:4px;cursor:pointer;font-size:12px;font-weight:600}
@@ -1600,6 +1612,7 @@ function cronoOperarios(){return (DB.operarios&&DB.operarios.length)?DB.operario
 // El turno de día es M1 O M2 (excluyente). diaTurno deriva el turno del día desde lo cargado.
 function diaTurno(f){const s=(DB.cronograma||[]).find(x=>x.fecha===f&&(x.turno==='M1'||x.turno==='M2'));return s?s.turno:(cronoDiaPref[f]||'M1');}
 async function setDiaTurno(f,t){cronoDiaPref[f]=t;let ch=false;(DB.cronograma||[]).forEach(x=>{if(x.fecha===f&&(x.turno==='M1'||x.turno==='M2')){if(x.turno!==t)ch=true;x.turno=t;}});renderCronograma();if(ch){const ok=await saveToCloud();if(ok)toast('Turno de día actualizado ✓');}}
+function cronoReal(fecha,turno,prod){const ts=turno==='N'?['N']:['M1','M2'];const pals=(DB.pallets||[]).filter(x=>x.fecha===fecha&&ts.includes(x.turno)&&x.prod===prod);return {pal:pals.length,uds:pals.reduce((s,p)=>s+(p.uds||0),0)};}
 function renderCronograma(){
   if(!document.getElementById('crono-grid'))return;
   cronoInit();
@@ -1607,17 +1620,24 @@ function renderCronograma(){
   const slots=(DB.cronograma||[]).filter(s=>famOk(s.prod));
   const wk=slots.filter(s=>dias.includes(s.fecha));
   const meta=wk.reduce((a,s)=>a+(s.meta||0),0);
+  const realPal=wk.filter(s=>!esEvento(s.prod)).reduce((a,s)=>a+cronoReal(s.fecha,s.turno,s.prod).pal,0);
+  const cumpl=meta>0?Math.round(realPal/meta*100):null;
   const prodset=new Set(wk.filter(s=>!esEvento(s.prod)).map(s=>s.prod));
   document.getElementById('crono-kpis').innerHTML=`
-    <div class="kpi"><div class="v">${fmt(wk.length)}</div><div class="l">Asignaciones esta semana</div></div>
-    <div class="kpi"><div class="v">${fmt(meta)}</div><div class="l">Meta de pallets</div></div>
-    <div class="kpi"><div class="v">${fmt(prodset.size)}</div><div class="l">Productos planificados</div></div>`;
+    <div class="kpi"><div class="v">${fmt(wk.length)}</div><div class="l">Asignaciones</div><div class="s">${fmt(prodset.size)} productos</div></div>
+    <div class="kpi"><div class="v">${fmt(realPal)} <span style="font-size:15px;color:var(--text3);font-weight:600">/ ${fmt(meta)}</span></div><div class="l">Pallets hechos / meta</div></div>
+    <div class="kpi"><div class="v" style="color:${cumpl===null?'var(--text3)':cumpl>=100?'var(--ok)':cumpl>=70?'var(--mid)':'var(--bad)'}">${cumpl===null?'—':cumpl+'%'}</div><div class="l">Cumplimiento de la semana</div></div>`;
   const d0=new Date(dias[0]+'T00:00'),d6=new Date(dias[6]+'T00:00');
   document.getElementById('crono-label').textContent='Semana del '+d0.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' al '+d6.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
   const hoy=ymd(new Date());
   const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
   const head='<tr><th class="crono-th-t"></th>'+dias.map(f=>{const dd=new Date(f+'T00:00');const h=f===hoy;return `<th class="crono-th${h?' crono-hoy':''}">${cap(dd.toLocaleDateString('es-AR',{weekday:'short'}).replace('.',''))}<div class="crono-th-d">${dd.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})}${h?' · hoy':''}</div></th>`;}).join('')+'</tr>';
-  const chipHTML=s=>{if(esEvento(s.prod)){const ev=CRONO_EVENTOS[s.prod];return `<div class="crono-chip evt evt-${s.prod}" onclick="openCrono('${s.id}')"><div class="cc-top"><b>${ev.ic} ${ev.lbl}</b></div>${(s.operarios&&s.operarios.length)?`<div class="cc-ops">👷 ${s.operarios.join(', ')}</div>`:''}${s.obs?`<div class="cc-obs">${s.obs}</div>`:''}</div>`;}const ens=CAT[s.prod]&&CAT[s.prod].fam==='Ensaladera';return `<div class="crono-chip${ens?' ens':''}" onclick="openCrono('${s.id}')"><div class="cc-top"><b>${s.prod}</b>${s.meta?`<span class="cc-meta">${fmt(s.meta)} pal</span>`:''}</div>${(s.operarios&&s.operarios.length)?`<div class="cc-ops">👷 ${s.operarios.join(', ')}</div>`:''}${s.obs?`<div class="cc-obs">${s.obs}</div>`:''}</div>`;};
+  const chipHTML=s=>{if(esEvento(s.prod)){const ev=CRONO_EVENTOS[s.prod];return `<div class="crono-chip evt evt-${s.prod}" onclick="openCrono('${s.id}')"><div class="cc-top"><b>${ev.ic} ${ev.lbl}</b></div>${(s.operarios&&s.operarios.length)?`<div class="cc-ops">👷 ${s.operarios.join(', ')}</div>`:''}${s.obs?`<div class="cc-obs">${s.obs}</div>`:''}</div>`;}
+    const ens=CAT[s.prod]&&CAT[s.prod].fam==='Ensaladera';const r=cronoReal(s.fecha,s.turno,s.prod);
+    let prog='';
+    if(s.meta>0){const pct=Math.min(100,Math.round(r.pal/s.meta*100));const cls=r.pal>=s.meta?'pg-ok':(r.pal>0?'pg-mid':'pg-zero');prog=`<div class="cc-prog"><div class="cc-bar"><div class="cc-fill ${cls}" style="width:${pct}%"></div></div><span class="cc-prn ${cls}">${fmt(r.pal)}/${fmt(s.meta)} pal · ${pct}%</span></div>`;}
+    else if(r.pal>0){prog=`<div class="cc-prog"><span class="cc-prn pg-real">✓ ${fmt(r.pal)} pal hechos</span></div>`;}
+    return `<div class="crono-chip ${ens?'ens':'cl'}" onclick="openCrono('${s.id}')"><div class="cc-top"><span class="cc-name">${s.prod}</span></div>${prog}${(s.operarios&&s.operarios.length)?`<div class="cc-ops">👷 ${s.operarios.join(', ')}</div>`:''}${s.obs?`<div class="cc-obs">${s.obs}</div>`:''}</div>`;};
   // Fila DÍA (M1 o M2, excluyente por día)
   const filaDia=`<tr><td class="crono-turno"><div class="crono-rowlbl">☀️ Día</div><div class="crono-rowh">M1 o M2</div></td>`+dias.map(f=>{
     const dt=diaTurno(f);const cell=slots.filter(s=>s.fecha===f&&(s.turno==='M1'||s.turno==='M2')).sort((a,b)=>(a.prod||'').localeCompare(b.prod||''));
