@@ -490,7 +490,7 @@ async function saveToCloud(isNew){
   try{
     let res;
     if(isNew||!CFG.binId){
-      res=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Name':'winflex-termoformado','X-Bin-Private':'true'},body:JSON.stringify(mine)});
+      res=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Name':'winflex-termoformado','X-Bin-Private':'true','X-Bin-Versioning':'true'},body:JSON.stringify(mine)});
       if(!res.ok)throw new Error('HTTP '+res.status);CFG.binId=(await res.json()).metadata.id;saveCfgLocal();
     }else{
       // preservar lo que maneja sólo el portal (pedidos, clientes, ajustes, cronograma, stockConfig): releer lo último antes de pisar
@@ -498,7 +498,7 @@ async function saveToCloud(isNew){
       try{const g=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});if(g.ok){const rec=(await g.json()).record||{};extra={ajustes:rec.ajustes,clientes:rec.clientes,cronograma:rec.cronograma,pedidos:rec.pedidos,stockConfig:rec.stockConfig};cloudExtra=extra;}}catch(_){}
       const payload=Object.assign({},mine);
       if(extra){['ajustes','clientes','cronograma','pedidos','stockConfig'].forEach(k=>{if(extra[k]!==undefined)payload[k]=extra[k];});}
-      res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey},body:JSON.stringify(payload)});
+      res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},body:JSON.stringify(payload)});
       if(!res.ok)throw new Error('HTTP '+res.status);
     }
     setSync('ok','Guardado');renderAll();

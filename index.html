@@ -758,6 +758,7 @@ const USERS={'1205':{n:'Matías',r:'Administrador'},'3080':{n:'Jonathan',r:'Inge
 
 // ════════ ESTADO ════════
 let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},ajustes:[],clientes:[],cronograma:[],operarios:[]};
+let LOAD_OK=false; // true solo si loadFromCloud leyó bien la nube; bloquea saveToCloud si la carga falló
 const DEFAULT_MASTER_KEY='$2a$10$8p4t41BnTv.9Ls.4kFLhouDMqJGQEd5LQlBYEz8n1y6nH/3dFq27G';
 const DEFAULT_BIN_ID='6a243e42da38895dfe915231';
 let CFG={apiKey:DEFAULT_MASTER_KEY,binId:DEFAULT_BIN_ID};
@@ -782,14 +783,16 @@ async function loadFromCloud(force){
     const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});
     if(!res.ok)throw new Error('HTTP '+res.status);
     const r=(await res.json()).record||{};
+    LOAD_OK=true; // lectura de nube válida
     const cloudN=(r.bobinas||[]).length+(r.pedidos||[]).length;
     const memN=DB.bobinas.length+DB.pedidos.length;
     if(cloudN===0&&memN>0&&!force){if(!confirm('La nube está vacía pero este equipo tiene '+memN+' registros. ¿Sobrescribir con lo vacío? (Cancelá para conservar lo de este equipo)')){setSync('ok','Se conservó lo local');return;}}
     DB.bobinas=r.bobinas||[];DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};DB.ajustes=r.ajustes||[];DB.clientes=(r.clientes&&r.clientes.length)?r.clientes:seedClientes();DB.cronograma=r.cronograma||[];DB.operarios=r.operarios||[];
     dirty=false;setSync('ok','Sincronizado');refreshClienteDatalist();renderAll();
-  }catch(e){setSync('err','Sin conexión');const l=localStorage.getItem('wf_termo_local');if(l){const d=JSON.parse(l);Object.assign(DB,d);renderAll();}}
+  }catch(e){LOAD_OK=false;setSync('err','Sin conexión — guardado bloqueado, recargá');const l=localStorage.getItem('wf_termo_local');if(l){const d=JSON.parse(l);Object.assign(DB,d);renderAll();}}
 }
 async function saveToCloud(){
+  if(!LOAD_OK){setSync('err','Guardado bloqueado: la carga falló. Recargá.');toast('⚠ No se guardó: la carga inicial no se completó. Recargá la página antes de operar.','warn');return false;}
   setSync('loading','Guardando...');
   localStorage.setItem('wf_termo_local',JSON.stringify({bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,ajustes:DB.ajustes,clientes:DB.clientes,cronograma:DB.cronograma,operarios:DB.operarios}));
   dirty=true;
@@ -803,7 +806,7 @@ async function saveToCloud(){
       pallets:pick('pallets'),cierres:pick('cierres'),operarios:pick('operarios'),
       bobinas: prodDirty ? mergeById(DB.bobinas,latest.bobinas).filter(b=>!bobinasDeleted.has(b.id)) : pick('bobinas')
     };
-    const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey},body:JSON.stringify(payload)});
+    const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},body:JSON.stringify(payload)});
     if(!res.ok)throw new Error('HTTP '+res.status);
     DB.bobinas=payload.bobinas;DB.pallets=payload.pallets;DB.cierres=payload.cierres;DB.operarios=payload.operarios;
     prodDirty=false;bobinasDeleted.clear();dirty=false;setSync('ok','Guardado');renderAll();return true;
