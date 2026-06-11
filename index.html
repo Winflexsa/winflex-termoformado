@@ -877,7 +877,14 @@ function stockPalletsP(p){const b=stockByBox(p);if(b.length)return Math.round(b.
 // Producción agrupada por tipo de caja (uxp). Exacto desde las bobinas.
 function prodByBox(p){const m={};DB.bobinas.filter(b=>b.prod===p).forEach(b=>{const u=b.uxp||0;if(!u)return;m[u]=m[u]||{uxp:u,uds:0,cajas:0};m[u].uds+=b.uds||0;m[u].cajas+=b.cajas||0;});return Object.values(m).sort((a,b)=>b.uxp-a.uxp);}
 // Stock repartido por tipo de caja, proporcional a lo producido en cada tamaño (las ventas no traen tipo de caja).
+// ── Detalle de stock real cargado manualmente (por tipo de caja) ──
+function stockRealBoxes(p){const c=DB.stockConfig[p];return (c&&c.real&&Array.isArray(c.real.boxes)&&c.real.boxes.length)?c.real.boxes:null;}
+function realPalletsP(p){const r=stockRealBoxes(p);if(!r)return 0;return Math.round(r.reduce((s,x)=>{const cpp=(+x.cpp)||cajasXPallet(p,+x.uxp)||0;return s+(cpp>0?(+x.cajas||0)/cpp:0);},0)*10)/10;}
+function realUdsP(p){const r=stockRealBoxes(p);if(!r)return 0;return r.reduce((s,x)=>s+(+x.cajas||0)*(+x.uxp||0),0);}
+function palletsTotalP(p){return palletsProd(p)+realPalletsP(p);}
 function stockByBox(p){
+  const real=stockRealBoxes(p);
+  if(real){return real.map(x=>{const uxp=+x.uxp||0,cajas=+x.cajas||0,cpp=(+x.cpp)||cajasXPallet(p,uxp)||0;const stU=cajas*uxp;return {uxp,prodUds:stU,prodCajas:cajas,frac:0,stU,stC:cajas,stP:cpp>0?Math.round(cajas/cpp*10)/10:0,cpp,real:true};});}
   const boxes=prodByBox(p);const totProd=boxes.reduce((s,x)=>s+x.uds,0);
   if(!boxes.length||totProd<=0)return [];
   const sa=stockActual(p);
@@ -984,8 +991,11 @@ function toggleDia(row){const d=row.nextElementSibling;const op=row.classList.to
 
 let stockSoloMov=true;
 function boxDetail(p,boxes){
+  const esReal=boxes[0]&&boxes[0].real;
   const tU=boxes.reduce((s,x)=>s+x.stU,0),tC=boxes.reduce((s,x)=>s+x.stC,0),tP=Math.round(boxes.reduce((s,x)=>s+x.stP,0)*10)/10;
-  return `<div class="boxwrap"><div class="boxttl">Stock de <b>${p}</b> repartido por formato de caja</div><table class="boxtbl"><thead><tr><th>Tamaño de caja</th><th>Unidades</th><th>Cajas</th><th>Pallets</th></tr></thead><tbody>${boxes.map(x=>`<tr><td class="bx-fmt"><b>${fmt(x.uxp)}</b> u/caja${x.cpp?`<span>${x.cpp} cajas por pallet</span>`:'<span>—</span>'}</td><td class="bx-n">${fmt(x.stU)}</td><td class="bx-n">${fmt(x.stC)}</td><td class="bx-n">${x.stP?x.stP:'—'}</td></tr>`).join('')}<tr class="bx-tot"><td>Total disponible</td><td class="bx-n">${fmt(tU)}</td><td class="bx-n">${fmt(tC)}</td><td class="bx-n">${tP}</td></tr></tbody></table><div class="boxnote">Cajas = unidades ÷ unidades por caja&nbsp;&nbsp;·&nbsp;&nbsp;Pallets = cajas ÷ cajas por pallet</div></div>`;
+  const ttl=esReal?`Stock <b>${p}</b> contado en planta, por tipo de caja`:`Stock de <b>${p}</b> repartido por formato de caja`;
+  const note=esReal?'Unidades = cajas × u/caja&nbsp;&nbsp;·&nbsp;&nbsp;Pallets = cajas ÷ cajas por pallet':'Cajas = unidades ÷ unidades por caja&nbsp;&nbsp;·&nbsp;&nbsp;Pallets = cajas ÷ cajas por pallet';
+  return `<div class="boxwrap"><div class="boxttl">${ttl}</div><table class="boxtbl"><thead><tr><th>Tamaño de caja</th><th>Unidades</th><th>Cajas</th><th>Pallets</th></tr></thead><tbody>${boxes.map(x=>`<tr><td class="bx-fmt"><b>${fmt(x.uxp)}</b> u/caja${x.cpp?`<span>${x.cpp} cajas por pallet</span>`:'<span>—</span>'}</td><td class="bx-n">${fmt(x.stU)}</td><td class="bx-n">${fmt(x.stC)}</td><td class="bx-n">${x.stP?x.stP:'—'}</td></tr>`).join('')}<tr class="bx-tot"><td>Total disponible</td><td class="bx-n">${fmt(tU)}</td><td class="bx-n">${fmt(tC)}</td><td class="bx-n">${tP}</td></tr></tbody></table><div class="boxnote">${note}</div></div>`;
 }
 function toggleStockRow(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('stk-detail'))d.style.display=op?'table-row':'none';}
 function tieneMov(p){return producido(p)>0||vendido(p)>0||stockActual(p)!==0||enPedido(p)>0||(stockCfg(p).ini||0)>0||ajustesProd(p)!==0;}
@@ -1023,12 +1033,17 @@ function renderStock(){
 function renderPallets(){
   const PF=PRODS.filter(famOk);
   const palsF=DB.pallets.filter(p=>famOk(p.prod));
-  const tot=palsF.length,totU=palsF.reduce((s,p)=>s+(p.uds||0),0),prodsCon=PF.filter(p=>palletsProd(p)>0).length;
-  document.getElementById('pal-kpis').innerHTML=`<div class="kpi"><div class="v">${fmt(tot)}</div><div class="l">Pallets cerrados</div></div><div class="kpi"><div class="v">${fmt(totU)}</div><div class="l">Unidades en pallets</div></div><div class="kpi"><div class="v">${fmt(prodsCon)}</div><div class="l">Productos con pallets</div></div>`;
-  const max=Math.max(1,...PF.map(palletsProd));const bp=PF.filter(p=>palletsProd(p)>0);
-  document.getElementById('pal-byprod').innerHTML=bp.length?bp.map(p=>`<div class="barrow"><div class="nm">${p}</div><div class="bartrack"><div class="barfill" style="width:${Math.round(palletsProd(p)/max*100)}%;background:${famColor(CAT[p].fam)}"></div></div><div class="vl">${palletsProd(p)} pallets</div></div>`).join(''):'<div class="empty">Sin pallets</div>';
+  const palReal=Math.round(PF.reduce((s,p)=>s+realPalletsP(p),0)*10)/10;
+  const totPal=Math.round((palsF.length+palReal)*10)/10;
+  const totU=palsF.reduce((s,p)=>s+(p.uds||0),0)+PF.reduce((s,p)=>s+realUdsP(p),0);
+  const prodsCon=PF.filter(p=>palletsTotalP(p)>0).length;
+  document.getElementById('pal-kpis').innerHTML=`<div class="kpi"><div class="v">${totPal}</div><div class="l">Pallets</div></div><div class="kpi"><div class="v">${fmt(totU)}</div><div class="l">Unidades en pallets</div></div><div class="kpi"><div class="v">${fmt(prodsCon)}</div><div class="l">Productos con pallets</div></div>`;
+  const max=Math.max(1,...PF.map(palletsTotalP));const bp=PF.filter(p=>palletsTotalP(p)>0);
+  document.getElementById('pal-byprod').innerHTML=bp.length?bp.map(p=>`<div class="barrow"><div class="nm">${p}</div><div class="bartrack"><div class="barfill" style="width:${Math.round(palletsTotalP(p)/max*100)}%;background:${famColor(CAT[p].fam)}"></div></div><div class="vl">${palletsTotalP(p).toLocaleString('es-AR',{maximumFractionDigits:1})} pallets</div></div>`).join(''):'<div class="empty">Sin pallets</div>';
   const items=palsF.slice().sort((a,b)=>(parseInt(b.num)||0)-(parseInt(a.num)||0));
-  document.getElementById('pal-tbody').innerHTML=items.length?items.map(p=>`<tr><td class="mono"><b>#${p.num}</b></td><td><span class="prodtag ${CAT[p.prod]?.fam==='Ensaladera'?'ens':''}">${p.prod}</span></td><td class="mono">${fmt(p.uxp)}</td><td class="mono">${fmt(p.cajas)}</td><td class="mono">${fmt(p.uds)}</td><td>${(p.fecha||'').slice(5)}</td><td><span class="turno-pill">${p.turno||'—'}</span></td></tr>`).join(''):'<tr><td colspan="7" class="empty">Sin pallets</td></tr>';
+  let rows=items.map(p=>`<tr><td class="mono"><b>#${p.num}</b></td><td><span class="prodtag ${CAT[p.prod]?.fam==='Ensaladera'?'ens':''}">${p.prod}</span></td><td class="mono">${fmt(p.uxp)}</td><td class="mono">${fmt(p.cajas)}</td><td class="mono">${fmt(p.uds)}</td><td>${(p.fecha||'').slice(5)}</td><td><span class="turno-pill">${p.turno||'—'}</span></td></tr>`).join('');
+  PF.forEach(p=>{const r=stockRealBoxes(p);if(!r)return;const f=((DB.stockConfig[p].real||{}).fecha||'').slice(5);r.forEach(x=>{const uxp=+x.uxp||0,cajas=+x.cajas||0,cpp=(+x.cpp)||cajasXPallet(p,uxp)||0;const pal=cpp>0?Math.round(cajas/cpp*10)/10:0;rows+=`<tr style="background:var(--surf3)"><td class="mono" style="color:var(--text3);font-size:11px">stock real</td><td><span class="prodtag ${CAT[p]?.fam==='Ensaladera'?'ens':''}">${p}</span></td><td class="mono">${fmt(uxp)}</td><td class="mono">${fmt(cajas)}</td><td class="mono">${fmt(cajas*uxp)}</td><td>${f||'—'}</td><td><span class="turno-pill">≈ ${pal} pal</span></td></tr>`;});});
+  document.getElementById('pal-tbody').innerHTML=rows||'<tr><td colspan="7" class="empty">Sin pallets</td></tr>';
 }
 
 function pedUrgency(p){
@@ -1225,7 +1240,7 @@ function pedPendiente(p){if(p.estado==='Cancelado')return 0;return Math.max(0,(p
 
 // ════════ STOCK ════════
 function openStock(){const rows=[];for(let i=0;i<PRODS.length;i+=2){const a=PRODS[i],b=PRODS[i+1];rows.push(`<div class="frow"><div class="field"><label>${a} — stock inicial</label><input type="number" id="sk-ini-${a}" value="${stockCfg(a).ini||0}"></div>${b?`<div class="field"><label>${b} — stock inicial</label><input type="number" id="sk-ini-${b}" value="${stockCfg(b).ini||0}"></div>`:'<div class="field"></div>'}</div>`);}document.getElementById('stock-modal-body').innerHTML=rows.join('');document.getElementById('modal-stock').classList.add('show');}
-async function saveStock(){PRODS.forEach(p=>{DB.stockConfig[p]={ini:parseInt(gv('sk-ini-'+p))||0,rech:(stockCfg(p).rech||0)};});closeModal('modal-stock');const ok=await saveToCloud();if(ok)toast('Stock inicial actualizado ✓');}
+async function saveStock(){PRODS.forEach(p=>{DB.stockConfig[p]={...(DB.stockConfig[p]||{}),ini:parseInt(gv('sk-ini-'+p))||0,rech:(stockCfg(p).rech||0)};});closeModal('modal-stock');const ok=await saveToCloud();if(ok)toast('Stock inicial actualizado ✓');}
 
 // ════════ IMPORT ENSALADERAS ════════
 function openImport(){document.getElementById('imp-result').textContent='';document.getElementById('modal-import').classList.add('show');}
@@ -1511,15 +1526,17 @@ async function confirmarStockReal(){
   if(!DB.ajustes)DB.ajustes=[]; let count=0;
   PRODS.forEach(p=>{
     const cont=document.getElementById('srrows-'+p); if(!cont)return;
-    let real=0, cajasTot=0, palTot=0, hasInput=false;
+    let real=0, cajasTot=0, palTot=0, hasInput=false; const boxesArr=[];
     cont.querySelectorAll('.sr-row').forEach(row=>{
       const cajasStr=row.querySelector('.sr-cajas').value.trim(); if(cajasStr==='')return;
       const uxp=+row.querySelector('.sr-box').value||0;
       const cpp=+row.querySelector('.sr-cpp').value||0;
       const cajas=parseInt(cajasStr)||0;
       real+=cajas*uxp; cajasTot+=cajas; if(cpp>0)palTot+=cajas/cpp; hasInput=true;
+      boxesArr.push({uxp,cajas,cpp});
     });
     if(!hasInput)return;
+    DB.stockConfig[p]={...(DB.stockConfig[p]||{}),real:{fecha:new Date().toISOString().split('T')[0],boxes:boxesArr}};
     const otros=(DB.ajustes||[]).filter(a=>a.prod===p&&!(a.motivo||'').startsWith('Establecer stock real')).reduce((s,a)=>s+(a.cantidad||0),0);
     const base=(stockCfg(p).ini||0)+producido(p)-vendido(p)-(stockCfg(p).rech||0)+otros;
     const dif=real-base;
