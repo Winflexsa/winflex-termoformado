@@ -701,9 +701,9 @@ tr.cli-row.open{background:var(--surf2)}
 
 <!-- MODAL ESTABLECER STOCK REAL -->
 <div class="modal-ov" id="modal-stockreal">
-  <div class="modal" style="max-width:640px"><h3>Establecer stock real</h3>
-    <p style="font-size:13px;color:var(--text2);margin:0 0 14px">Ingresá el stock <b>contado en planta</b> para cada producto. El sistema genera el ajuste necesario para que coincida. Dejá vacío lo que no quieras tocar.</p>
-    <div class="tbl-wrap"><table><thead><tr><th>Producto</th><th style="text-align:right">Stock sistema</th><th>Stock real contado</th></tr></thead><tbody id="sr-body"></tbody></table></div>
+  <div class="modal" style="max-width:760px"><h3>Establecer stock real</h3>
+    <p style="font-size:13px;color:var(--text2);margin:0 0 12px">Cargá el stock <b>contado en planta</b> por <b>tipo de caja</b> y <b>cantidad de pallets</b>. Las unidades se calculan solas (<code>pallets × cajas/pallet × u/caja</code>). Podés agregar varios tipos de caja por producto. Dejá un producto sin pallets para no tocarlo.</p>
+    <div id="sr-body" style="max-height:58vh;overflow:auto;padding-right:4px"></div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-stockreal')">Cancelar</button><button class="btn btn-green" onclick="confirmarStockReal()">Aplicar stock real</button></div>
   </div>
 </div>
@@ -1435,29 +1435,98 @@ function delBobinaFromModal(){const id=editBobId;closeModal('modal-editprod');if
 function openAjuste(){document.getElementById('aj-prod').innerHTML='<option value="">— Seleccionar —</option>'+PRODS.map(p=>`<option>${p}</option>`).join('');sv('aj-prod','');sv('aj-tipo','alta');sv('aj-uds','');sv('aj-motivo','');document.getElementById('modal-ajuste').classList.add('show');}
 async function confirmarAjuste(){const prod=gv('aj-prod'),tipo=gv('aj-tipo'),uds=parseInt(gv('aj-uds'))||0,motivo=gv('aj-motivo').trim();if(!prod)return toast('Elegí un producto','warn');if(uds<=0)return toast('Ingresá una cantidad mayor a 0','warn');const cantidad=tipo==='baja'?-uds:uds;if(!DB.ajustes)DB.ajustes=[];DB.ajustes.push({id:String(Date.now())+'_'+Math.random().toString(36).slice(2,5),fecha:new Date().toISOString().split('T')[0],prod,cantidad,motivo:motivo||(tipo==='baja'?'Baja de inventario':'Alta de inventario')});closeModal('modal-ajuste');const ok=await saveToCloud();if(ok)toast('Ajuste de inventario guardado ✓');}
 async function delAjuste(id){if(!confirm('¿Eliminar este ajuste de inventario?'))return;DB.ajustes=(DB.ajustes||[]).filter(a=>String(a.id)!==String(id));const ok=await saveToCloud();if(ok)toast('Ajuste eliminado');}
+// ── Establecer stock real: carga por tipo de caja + pallets ──
+function srRepBox(p){ // tamaño de caja más representativo del producto
+  const ux=uxpProm(p), sizes=(CAT[p]&&CAT[p].cajas)||[]; let best=sizes[0]||1,bd=Infinity;
+  sizes.forEach(s=>{const d=Math.abs(s-ux);if(d<bd){bd=d;best=s;}});
+  return best;
+}
+function srRowHTML(p,uxp){
+  const sizes=(CAT[p]&&CAT[p].cajas)||[];
+  const opts=sizes.map(s=>`<option value="${s}" ${s===uxp?'selected':''}>${fmt(s)} u/caja</option>`).join('');
+  const cpp=cajasXPallet(p,uxp); const cppVal=(cpp!=null)?cpp:'';
+  return `<div class="sr-row" style="display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap">
+    <select class="sr-box" data-prod="${p}" onchange="srBoxChange(this)" style="width:118px">${opts}</select>
+    <input type="number" class="sr-pallets" data-prod="${p}" min="0" step="any" placeholder="pallets" oninput="srRecalc()" style="width:78px;text-align:right">
+    <span style="color:var(--text3);font-size:12px">pallets ×</span>
+    <input type="number" class="sr-cpp" data-prod="${p}" min="0" step="1" value="${cppVal}" title="cajas por pallet" oninput="srRecalc()" style="width:60px;text-align:right">
+    <span style="color:var(--text3);font-size:12px">cajas/pallet</span>
+    <span class="sr-rowu mono" style="flex:1;text-align:right;font-weight:600;min-width:130px">— u</span>
+    <button class="linkact del" onclick="srDelRow(this)" title="Quitar tipo de caja">✕</button>
+  </div>`;
+}
 function openEstablecerStock(){
-  let rows='';
+  let html='';
   PRODS.forEach(p=>{
     const sa=stockActual(p);
-    const otros=(DB.ajustes||[]).filter(a=>a.prod===p&&!(a.motivo||'').startsWith('Establecer stock real')).reduce((s,a)=>s+(a.cantidad||0),0);
-    const base=(stockCfg(p).ini||0)+producido(p)-vendido(p)-(stockCfg(p).rech||0)+otros;
-    if(producido(p)<=0&&sa===0)return;
-    rows+=`<tr><td style="font-weight:700"><span class="prodtag ${CAT[p].fam==='Ensaladera'?'ens':''}">${p}</span></td><td class="mono" style="text-align:right">${fmt(sa)} u</td><td><input type="number" class="sr-input" data-prod="${p}" data-base="${base}" min="0" placeholder="—" style="width:120px;text-align:right"></td></tr>`;
+    html+=`<div class="sr-prod" data-prod="${p}" style="border:1px solid var(--border2);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <span class="prodtag ${CAT[p].fam==='Ensaladera'?'ens':''}">${p}</span>
+        <span style="font-size:12px;color:var(--text3)">Sistema: ${fmt(sa)} u</span>
+        <span class="sr-tot" id="srtot-${p}" style="margin-left:auto;font-size:13px;font-weight:700;color:var(--text2)">Real: — u</span>
+      </div>
+      <div class="sr-rows" id="srrows-${p}">${srRowHTML(p,srRepBox(p))}</div>
+      <button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="srAddRow('${p}')">+ tipo de caja</button>
+    </div>`;
   });
-  document.getElementById('sr-body').innerHTML=rows||'<tr><td colspan="3" class="empty">Sin productos con stock para ajustar</td></tr>';
+  document.getElementById('sr-body').innerHTML=html;
+  srRecalc();
   document.getElementById('modal-stockreal').classList.add('show');
 }
+function srAddRow(p){
+  document.getElementById('srrows-'+p).insertAdjacentHTML('beforeend',srRowHTML(p,srRepBox(p)));
+  srRecalc();
+}
+function srDelRow(btn){
+  const rows=btn.closest('.sr-rows');
+  if(rows.querySelectorAll('.sr-row').length>1) btn.closest('.sr-row').remove();
+  else btn.closest('.sr-row').querySelector('.sr-pallets').value='';
+  srRecalc();
+}
+function srBoxChange(sel){
+  const p=sel.dataset.prod, uxp=+sel.value;
+  const cppInp=sel.closest('.sr-row').querySelector('.sr-cpp');
+  const cpp=cajasXPallet(p,uxp); if(cpp!=null) cppInp.value=cpp;
+  srRecalc();
+}
+function srRecalc(){
+  PRODS.forEach(p=>{
+    const cont=document.getElementById('srrows-'+p); if(!cont)return;
+    let tot=0, hasInput=false;
+    cont.querySelectorAll('.sr-row').forEach(row=>{
+      const uxp=+row.querySelector('.sr-box').value||0;
+      const palStr=row.querySelector('.sr-pallets').value.trim();
+      const cpp=+row.querySelector('.sr-cpp').value||0;
+      const pal=parseFloat(palStr)||0;
+      const cajas=pal*cpp, u=Math.round(cajas*uxp);
+      if(palStr!=='') { hasInput=true; tot+=u; }
+      row.querySelector('.sr-rowu').textContent = palStr===''?'— u':`${fmt(cajas)} cajas · ${fmt(u)} u`;
+    });
+    const totEl=document.getElementById('srtot-'+p);
+    if(totEl){ totEl.textContent=hasInput?`Real: ${fmt(tot)} u`:'Real: — u'; totEl.style.color=hasInput?'var(--ok)':'var(--text2)'; }
+  });
+}
 async function confirmarStockReal(){
-  const inputs=document.querySelectorAll('#sr-body .sr-input');if(!DB.ajustes)DB.ajustes=[];let count=0;
-  inputs.forEach(inp=>{
-    const vs=inp.value.trim();if(vs==='')return;
-    const real=parseInt(vs);if(isNaN(real)||real<0)return;
-    const prod=inp.dataset.prod;const base=parseInt(inp.dataset.base)||0;const dif=real-base;
-    DB.ajustes=DB.ajustes.filter(a=>!(a.prod===prod&&(a.motivo||'').startsWith('Establecer stock real')));
-    if(dif!==0)DB.ajustes.push({id:String(Date.now()+count)+'_'+Math.random().toString(36).slice(2,5),fecha:new Date().toISOString().split('T')[0],prod,cantidad:dif,motivo:'Establecer stock real ('+(dif>0?'+':'')+fmt(dif)+' u)'});
+  if(!DB.ajustes)DB.ajustes=[]; let count=0;
+  PRODS.forEach(p=>{
+    const cont=document.getElementById('srrows-'+p); if(!cont)return;
+    let real=0, pallets=0, hasInput=false;
+    cont.querySelectorAll('.sr-row').forEach(row=>{
+      const palStr=row.querySelector('.sr-pallets').value.trim(); if(palStr==='')return;
+      const uxp=+row.querySelector('.sr-box').value||0;
+      const cpp=+row.querySelector('.sr-cpp').value||0;
+      const pal=parseFloat(palStr)||0;
+      real+=Math.round(pal*cpp*uxp); pallets+=pal; hasInput=true;
+    });
+    if(!hasInput)return;
+    const otros=(DB.ajustes||[]).filter(a=>a.prod===p&&!(a.motivo||'').startsWith('Establecer stock real')).reduce((s,a)=>s+(a.cantidad||0),0);
+    const base=(stockCfg(p).ini||0)+producido(p)-vendido(p)-(stockCfg(p).rech||0)+otros;
+    const dif=real-base;
+    DB.ajustes=DB.ajustes.filter(a=>!(a.prod===p&&(a.motivo||'').startsWith('Establecer stock real')));
+    if(dif!==0)DB.ajustes.push({id:String(Date.now()+count)+'_'+Math.random().toString(36).slice(2,5),fecha:new Date().toISOString().split('T')[0],prod:p,cantidad:dif,motivo:`Establecer stock real (${dif>0?'+':''}${fmt(dif)} u · ${fmt(pallets)} pallets)`});
     count++;
   });
-  if(count===0)return toast('No ingresaste ningún valor','warn');
+  if(count===0)return toast('No ingresaste pallets en ningún producto','warn');
   closeModal('modal-stockreal');const ok=await saveToCloud();if(ok)toast('Stock real aplicado ✓');
 }
 
