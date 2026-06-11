@@ -1456,13 +1456,14 @@ function srRepBox(p){ // tamaño de caja más representativo del producto
   sizes.forEach(s=>{const d=Math.abs(s-ux);if(d<bd){bd=d;best=s;}});
   return best;
 }
-function srRowHTML(p,uxp){
+function srRowHTML(p,uxp,cajas,cppOv){
   const sizes=(CAT[p]&&CAT[p].cajas)||[];
   const opts=sizes.map(s=>`<option value="${s}" ${s===uxp?'selected':''}>${fmt(s)} u/caja</option>`).join('');
-  const cpp=cajasXPallet(p,uxp); const cppVal=(cpp!=null)?cpp:'';
+  const cppAuto=cajasXPallet(p,uxp); const cppVal=(cppOv!=null&&cppOv!==''&&+cppOv>0)?cppOv:((cppAuto!=null)?cppAuto:'');
+  const cajVal=(cajas!=null&&cajas!=='')?cajas:'';
   return `<div class="sr-row" style="display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap">
     <select class="sr-box" data-prod="${p}" onchange="srBoxChange(this)" style="width:118px">${opts}</select>
-    <input type="number" class="sr-cajas" data-prod="${p}" min="0" step="1" placeholder="cajas" oninput="srRecalc()" style="width:84px;text-align:right">
+    <input type="number" class="sr-cajas" data-prod="${p}" min="0" step="1" value="${cajVal}" placeholder="cajas" oninput="srRecalc()" style="width:84px;text-align:right">
     <span style="color:var(--text3);font-size:12px">cajas ÷</span>
     <input type="number" class="sr-cpp" data-prod="${p}" min="0" step="1" value="${cppVal}" title="cajas por pallet (para estimar pallets)" oninput="srRecalc()" style="width:54px;text-align:right">
     <span style="color:var(--text3);font-size:12px">c/pallet</span>
@@ -1474,13 +1475,15 @@ function openEstablecerStock(){
   let html='';
   PRODS.forEach(p=>{
     const sa=stockActual(p);
+    const real=stockRealBoxes(p);
+    const rowsHtml = real ? real.map(b=>srRowHTML(p,+b.uxp||srRepBox(p),b.cajas,b.cpp)).join('') : srRowHTML(p,srRepBox(p));
     html+=`<div class="sr-prod" data-prod="${p}" style="border:1px solid var(--border2);border-radius:10px;padding:10px 12px;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
         <span class="prodtag ${CAT[p].fam==='Ensaladera'?'ens':''}">${p}</span>
         <span style="font-size:12px;color:var(--text3)">Sistema: ${fmt(sa)} u</span>
         <span class="sr-tot" id="srtot-${p}" style="margin-left:auto;font-size:13px;font-weight:700;color:var(--text2)">Real: — u</span>
       </div>
-      <div class="sr-rows" id="srrows-${p}">${srRowHTML(p,srRepBox(p))}</div>
+      <div class="sr-rows" id="srrows-${p}">${rowsHtml}</div>
       <button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="srAddRow('${p}')">+ tipo de caja</button>
     </div>`;
   });
