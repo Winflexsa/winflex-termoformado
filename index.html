@@ -1304,7 +1304,7 @@ function wfSheet(wb,name,title,sub,cols,rows){
   ws.getRow(HR).height=22;
   rows.forEach((r,ri)=>{const R=HR+1+ri;cols.forEach((c,i)=>{
     const cell=ws.getCell(R,i+1);let v=r[c.k];
-    if(c.type==='num'){cell.value=(v==null||v==='')?0:Number(v);cell.numFmt='#,##0';cell.alignment={horizontal:'right'};cell.font={size:10,color:{argb:C_TEXT}};}
+    if(c.type==='num'){cell.value=(v==null||v==='')?0:Number(v);cell.numFmt=c.dec?'#,##0.0':'#,##0';cell.alignment={horizontal:'right'};cell.font={size:10,color:{argb:C_TEXT}};}
     else if(c.type==='pct'){if(v==null||v===''){cell.value='—';cell.alignment={horizontal:'right'};cell.font={size:10,color:{argb:C_TEXT2}};}else{cell.value=Number(v);cell.numFmt='0"%"';cell.alignment={horizontal:'right'};cell.font=eficFont(Number(v));}}
     else if(c.type==='estado'){cell.value=v||'—';cell.alignment={horizontal:'center'};estadoFill(cell,v);}
     else{cell.value=(v==null||v==='')?'—':v;cell.alignment={horizontal:c.al||'left',vertical:'middle',wrapText:!!c.wrap};cell.font={size:10,color:{argb:C_TEXT}};}
@@ -1314,7 +1314,7 @@ function wfSheet(wb,name,title,sub,cols,rows){
   cols.forEach((c,i)=>{ws.getColumn(i+1).width=c.w||14;});
   if(ws.getColumn(1).width<16)ws.getColumn(1).width=16;
   // totales numéricos
-  if(rows.length&&cols.some(c=>c.total)){const R=HR+1+rows.length;cols.forEach((c,i)=>{const cell=ws.getCell(R,i+1);cell.border=bAll(C_BORD);cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE4F6EC'}};if(i===0){cell.value='TOTAL';cell.font={bold:true,size:10,color:{argb:C_GREEND}};}else if(c.total&&c.type==='num'){cell.value=rows.reduce((s,r)=>s+(Number(r[c.k])||0),0);cell.numFmt='#,##0';cell.alignment={horizontal:'right'};cell.font={bold:true,size:10,color:{argb:C_GREEND}};}});ws.getRow(R).height=19;}
+  if(rows.length&&cols.some(c=>c.total)){const R=HR+1+rows.length;cols.forEach((c,i)=>{const cell=ws.getCell(R,i+1);cell.border=bAll(C_BORD);cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE4F6EC'}};if(i===0){cell.value='TOTAL';cell.font={bold:true,size:10,color:{argb:C_GREEND}};}else if(c.total&&c.type==='num'){cell.value=rows.reduce((s,r)=>s+(Number(r[c.k])||0),0);cell.numFmt=c.dec?'#,##0.0':'#,##0';cell.alignment={horizontal:'right'};cell.font={bold:true,size:10,color:{argb:C_GREEND}};}});ws.getRow(R).height=19;}
   return ws;
 }
 async function downloadWB(wb,name){const buf=await wb.xlsx.writeBuffer();const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
@@ -1368,11 +1368,24 @@ async function exportExcel(kind){
         [{h:'Fecha',k:'f',w:12},{h:'Turno',k:'t',w:8},{h:'Producto',k:'p',w:12},{h:'N° Bob.',k:'nb',w:10},{h:'Partida',k:'pa',w:12},{h:'Kg',k:'kg',w:10,type:'num',total:true},{h:'Cajas',k:'c',w:10,type:'num',total:true},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Operarios',k:'op',w:22}],
         det.map(b=>({f:b.fecha,t:b.turno,p:b.prod,nb:b.nbob||'',pa:b.partida||'',kg:b.kg||0,c:b.cajas||0,u:b.uds||0,op:(b.operarios||[]).join(', ')})));
     } else if(kind==='stock'){
-      wfSheet(wb,'Stock','Stock por producto',sub,stkCols(),stkRows(prods));
-      const palsF=DB.pallets.filter(p=>famOk(p.prod)).sort((a,b)=>(parseInt(b.num)||0)-(parseInt(a.num)||0));
-      wfSheet(wb,'Pallets','Pallets cerrados',sub,
-        [{h:'N°',k:'n',w:9},{h:'Producto',k:'p',w:12},{h:'Familia',k:'f',w:13},{h:'Caja (u)',k:'ux',w:11,type:'num'},{h:'Cajas',k:'c',w:10,type:'num',total:true},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Fecha',k:'fe',w:12},{h:'Turno',k:'t',w:8}],
-        palsF.map(p=>({n:'#'+p.num,p:p.prod,f:CAT[p.prod]?.fam||'',ux:p.uxp||0,c:p.cajas||0,u:p.uds||0,fe:p.fecha||'',t:p.turno||''})));
+      // Hoja 1 — Stock puro (sin producido/vendido/rechazado)
+      const sprods=prods.filter(p=>stockActual(p)!==0||enPedido(p)>0);
+      wfSheet(wb,'Stock','Stock disponible por producto',sub,
+        [{h:'Producto',k:'p',w:14},{h:'Familia',k:'f',w:14},{h:'Stock (uds)',k:'sa',w:13,type:'num',total:true},{h:'Stock (cajas)',k:'sc',w:13,type:'num',total:true},{h:'Stock (pallets)',k:'sp',w:14,type:'num',total:true,dec:true},{h:'En pedido',k:'ep',w:12,type:'num',total:true},{h:'Libre (uds)',k:'li',w:13,type:'num',total:true}],
+        sprods.map(p=>({p,f:CAT[p].fam,sa:stockActual(p),sc:stockCajasP(p),sp:stockPalletsP(p),ep:enPedido(p),li:stockActual(p)-enPedido(p)})));
+      // Hoja 2 — Detalle por tipo de caja
+      const detRows=[];
+      prods.forEach(p=>{const bx=stockByBox(p);bx.forEach(x=>detRows.push({p,f:CAT[p].fam,ux:x.uxp,c:x.stC,u:x.stU,cpp:x.cpp||'',pal:x.stP||0}));});
+      wfSheet(wb,'Detalle por caja','Stock detallado por tipo de caja',sub,
+        [{h:'Producto',k:'p',w:14},{h:'Familia',k:'f',w:13},{h:'Caja (u)',k:'ux',w:11,type:'num'},{h:'Cajas',k:'c',w:10,type:'num',total:true},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Cajas/pallet',k:'cpp',w:12,type:'num'},{h:'Pallets',k:'pal',w:10,type:'num',total:true,dec:true}],
+        detRows);
+      // Hoja 3 — Pallets (cerrados de tablet + carga manual de stock real)
+      const palRows=[];
+      DB.pallets.filter(p=>famOk(p.prod)).sort((a,b)=>(parseInt(b.num)||0)-(parseInt(a.num)||0)).forEach(p=>palRows.push({n:'#'+p.num,p:p.prod,f:CAT[p.prod]?.fam||'',ux:p.uxp||0,c:p.cajas||0,u:p.uds||0,pal:1,fe:p.fecha||'',o:'Cerrado'}));
+      prods.forEach(p=>{const r=stockRealBoxes(p);if(!r)return;const fe=((DB.stockConfig[p].real||{}).fecha)||'';r.forEach(x=>{const uxp=+x.uxp||0,cajas=+x.cajas||0,cpp=(+x.cpp)||cajasXPallet(p,uxp)||0;const pal=cpp>0?Math.round(cajas/cpp*10)/10:0;palRows.push({n:'—',p,f:CAT[p].fam,ux:uxp,c:cajas,u:cajas*uxp,pal,fe,o:'Stock real'});});});
+      wfSheet(wb,'Pallets','Pallets (cerrados + stock real)',sub,
+        [{h:'N°',k:'n',w:9},{h:'Producto',k:'p',w:12},{h:'Familia',k:'f',w:13},{h:'Caja (u)',k:'ux',w:11,type:'num'},{h:'Cajas',k:'c',w:10,type:'num',total:true},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Pallets',k:'pal',w:10,type:'num',total:true,dec:true},{h:'Fecha',k:'fe',w:12},{h:'Origen',k:'o',w:12}],
+        palRows);
     } else if(kind==='pedidos'){
       const all=DB.pedidos.filter(p=>famOk(p.prod)).slice().sort((a,b)=>{const ap=(a.estado==='Pendiente'||a.estado==='Parcial')?0:1,bp=(b.estado==='Pendiente'||b.estado==='Parcial')?0:1;if(ap!==bp)return ap-bp;if(ap===0)return (a.entrega||'9999').localeCompare(b.entrega||'9999');return (b.fecha||'').localeCompare(a.fecha||'');});
       const dias=p=>{if(!p.entrega||p.estado==='Entregado'||p.estado==='Cancelado')return '';const h=new Date();h.setHours(0,0,0,0);const d=new Date(p.entrega+'T00:00');if(isNaN(d))return '';return Math.round((d-h)/86400000);};
