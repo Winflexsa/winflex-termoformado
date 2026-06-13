@@ -63,6 +63,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .sb-logout{margin-left:auto;background:none;border:none;cursor:pointer;font-size:17px;color:var(--text3)}
 
 .main{margin-left:230px;flex:1;padding:26px 30px;max-width:1300px}
+/* Ventana dedicada a un módulo (abierta con ?pg=): sin sidebar, el módulo ocupa todo */
+body.modo-modulo .sidebar{display:none}
+body.modo-modulo .main{margin-left:0;max-width:none}
 .page{display:none}.page.active{display:block}
 .page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;gap:16px;flex-wrap:wrap}
 .page-title{font-size:24px;font-weight:700}
@@ -816,7 +819,7 @@ async function saveToCloud(){
 // ════════ LOGIN ════════
 function onPinInput(){const el=document.getElementById('pin-input');let v=el.value.replace(/\D/g,'').slice(0,4);el.value=v;for(let i=0;i<4;i++)document.getElementById('pd'+i).className='pdot'+(i<v.length?' on':'');document.getElementById('pin-error').textContent='';if(v.length===4)setTimeout(checkPin,120);}
 function focusPin(){document.getElementById('pin-field').classList.add('focus');document.getElementById('pin-input').focus();}
-function checkPin(){const v=document.getElementById('pin-input').value;if(USERS[v]){curUser=USERS[v];document.getElementById('login').classList.add('hidden');document.getElementById('shell').classList.remove('hidden');document.getElementById('sb-nm').textContent=curUser.n;document.getElementById('sb-rl').textContent=curUser.r;document.getElementById('sb-av').textContent=curUser.n[0];init();}else{document.getElementById('pin-error').textContent='PIN incorrecto';const el=document.getElementById('pin-input');el.value='';onPinInput();el.focus();}}
+function checkPin(){const v=document.getElementById('pin-input').value;if(USERS[v]){curUser=USERS[v];try{sessionStorage.setItem('winflex-termo-unlocked','1');sessionStorage.setItem('winflex-termo-pin',v);}catch(_){}document.getElementById('login').classList.add('hidden');document.getElementById('shell').classList.remove('hidden');document.getElementById('sb-nm').textContent=curUser.n;document.getElementById('sb-rl').textContent=curUser.r;document.getElementById('sb-av').textContent=curUser.n[0];init();}else{document.getElementById('pin-error').textContent='PIN incorrecto';const el=document.getElementById('pin-input');el.value='';onPinInput();el.focus();}}
 function logout(){location.reload();}
 
 // ════════ INIT ════════
@@ -835,7 +838,40 @@ function init(){
   refreshClienteDatalist();regCajaOpts();
   loadCfg();loadFromCloud();
 }
-function goTo(pg){document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.pg===pg));document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='pg-'+pg));renderAll();if(pg==='graficos')renderGraficos();}
+// ════════ NAVEGACIÓN POR VENTANAS (mismo sistema que Sueldos/Horas) ════════
+// Cada módulo se abre en su propia ventana (?pg=xxx). Si el navegador la bloquea
+// (tablets en kiosko), cae a navegación in-place usando el sidebar de siempre.
+const MODULOS={
+  dashboard:'📊 Dashboard del área', produccion:'🏭 Producción', registro:'➕ Registrar prod.',
+  cronograma:'🗓️ Cronograma', anual:'📅 Resumen anual', graficos:'📈 Gráficos',
+  stock:'🗃️ Stock y pallets', pedidos:'📋 Pedidos', clientes:'👥 Clientes', datos:'⚙️ Datos'
+};
+const _paramPg=(function(){try{return new URLSearchParams(location.search).get('pg');}catch(_){return null;}})();
+const MODULO_VENTANA=(_paramPg&&MODULOS[_paramPg])?_paramPg:null;
+const ES_HIJA=!!MODULO_VENTANA;
+function activarInterno(pg){
+  if(!MODULOS[pg])return;
+  if(document.body.classList.contains('modo-modulo')&&pg!==MODULO_VENTANA){document.body.classList.remove('modo-modulo');}
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.pg===pg));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='pg-'+pg));
+  renderAll();if(pg==='graficos')renderGraficos();
+}
+function abrirModulo(pg){
+  if(!MODULOS[pg])return;
+  if(ES_HIJA&&pg===MODULO_VENTANA)return;
+  try{
+    const aw=(window.screen&&screen.availWidth)||1280,ah=(window.screen&&screen.availHeight)||800;
+    const ww=Math.min(1280,Math.round(aw*0.88)),wh=Math.min(900,Math.round(ah*0.92));
+    const idx=Object.keys(MODULOS).indexOf(pg),off=(idx%6)*28;
+    const left=Math.max(0,Math.round((aw-ww)/2)+off-70),top=Math.max(0,Math.round((ah-wh)/2)+off-40);
+    const feats=`popup=yes,toolbar=no,location=no,menubar=no,status=no,resizable=yes,scrollbars=yes,width=${ww},height=${wh},left=${left},top=${top}`;
+    const w=window.open('./index.html?pg='+encodeURIComponent(pg),'winflextermo_'+pg,feats);
+    if(w){try{w.focus();}catch(_){ } return;}
+  }catch(_){}
+  activarInterno(pg);
+}
+// Compatibilidad: todas las llamadas a goTo(...) abren ahora una ventana.
+window.goTo=abrirModulo;
 function setFam(f){famFilter=f;document.querySelectorAll('.fam-seg-ctl button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));renderAll();}
 function famSegHTML(){return `<div class="seg fam-seg-ctl"><button data-f="Todos"${famFilter==='Todos'?' class="on"':''} onclick="setFam('Todos')">Todos</button><button data-f="Clamshell"${famFilter==='Clamshell'?' class="on"':''} onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera"${famFilter==='Ensaladera'?' class="on"':''} onclick="setFam('Ensaladera')">Ensaladera</button></div>`;}
 
@@ -1911,7 +1947,28 @@ async function renderGraficos(){
 
 let toastT;function toast(m,t){const e=document.getElementById('toastEl');e.textContent=m;e.className='toast show'+(t?' '+t:'');clearTimeout(toastT);toastT=setTimeout(()=>e.className='toast',t==='err'?4500:2400);}
 
-setTimeout(focusPin,100);
+function intentarAutoUnlock(){
+  let unlocked=false,pin='';
+  try{unlocked=sessionStorage.getItem('winflex-termo-unlocked')==='1';pin=sessionStorage.getItem('winflex-termo-pin')||'';}catch(_){}
+  if(!unlocked||!USERS[pin])return false;
+  curUser=USERS[pin];
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('shell').classList.remove('hidden');
+  document.getElementById('sb-nm').textContent=curUser.n;
+  document.getElementById('sb-rl').textContent=curUser.r;
+  document.getElementById('sb-av').textContent=curUser.n[0];
+  init();
+  return true;
+}
+if(intentarAutoUnlock()){
+  if(ES_HIJA){
+    document.body.classList.add('modo-modulo');
+    try{document.title=(MODULOS[MODULO_VENTANA]||'')+' · Termoformado';}catch(_){}
+    activarInterno(MODULO_VENTANA);
+  }
+}else{
+  setTimeout(focusPin,100);
+}
 </script>
 </body>
 </html>
