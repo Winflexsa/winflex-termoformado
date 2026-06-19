@@ -413,6 +413,8 @@ const DEFAULT_MASTER_KEY='$2a$10$8p4t41BnTv.9Ls.4kFLhouDMqJGQEd5LQlBYEz8n1y6nH/3
 const DEFAULT_BIN_ID='6a243e42da38895dfe915231';
 let CFG={apiKey:DEFAULT_MASTER_KEY,binId:DEFAULT_BIN_ID};
 let cloudExtra={};
+function mergeById(localArr,cloudArr){const m=new Map();(cloudArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});(localArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});return [...m.values()];}
+let bobinasDeleted=new Set(); let _skipBobMerge=false;
 let sel={turno:null,prod:null,ops:[],encargado:null};
 let curUser=null;
 let cajasManual=false, udsManual=false, admin=false;
@@ -494,12 +496,15 @@ async function saveToCloud(isNew){
       if(!res.ok)throw new Error('HTTP '+res.status);CFG.binId=(await res.json()).metadata.id;saveCfgLocal();
     }else{
       // preservar lo que maneja sólo el portal (pedidos, clientes, ajustes, cronograma, stockConfig): releer lo último antes de pisar
-      let extra=cloudExtra;
-      try{const g=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});if(g.ok){const rec=(await g.json()).record||{};extra={ajustes:rec.ajustes,clientes:rec.clientes,cronograma:rec.cronograma,pedidos:rec.pedidos,stockConfig:rec.stockConfig};cloudExtra=extra;}}catch(_){}
+      let extra=cloudExtra; let latest=null;
+      try{const g=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});if(g.ok){latest=(await g.json()).record||{};extra={ajustes:latest.ajustes,clientes:latest.clientes,cronograma:latest.cronograma,pedidos:latest.pedidos,stockConfig:latest.stockConfig};cloudExtra=extra;}}catch(_){}
       const payload=Object.assign({},mine);
+      if(latest&&!_skipBobMerge){payload.bobinas=mergeById(DB.bobinas,latest.bobinas).filter(b=>!bobinasDeleted.has(b.id));}
+      _skipBobMerge=false;
       if(extra){['ajustes','clientes','cronograma','pedidos','stockConfig'].forEach(k=>{if(extra[k]!==undefined)payload[k]=extra[k];});}
       res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},body:JSON.stringify(payload)});
       if(!res.ok)throw new Error('HTTP '+res.status);
+      DB.bobinas=payload.bobinas;bobinasDeleted.clear();
     }
     setSync('ok','Guardado');renderAll();
   }catch(e){setSync('err','Error al guardar');toast('Guardado local. Revisá conexión.','warn');}
@@ -770,7 +775,7 @@ async function adminSaveBob(){
 async function adminDelBob(id){
   const b=DB.bobinas.find(x=>x.id===id);if(!b)return;
   if(!confirm('¿Borrar esta bobina?'))return;
-  DB.bobinas=DB.bobinas.filter(x=>x.id!==id);
+  DB.bobinas=DB.bobinas.filter(x=>x.id!==id);bobinasDeleted.add(id);
   const rem=reconciliarPallets(b.prod,b.uxp);
   await saveToCloud(false);
   toast(rem>0?`Bobina borrada · ${rem} pallet(s) recalculados`:'Bobina borrada');
@@ -781,7 +786,7 @@ async function adminDelCierre(id){if(!confirm('¿Borrar este cierre de turno?'))
 async function borrarTodo(){
   if(!confirm('Esto borra TODAS las bobinas, pallets y cierres. ¿Seguro?'))return;
   if(!confirm('Última confirmación: se borra todo lo cargado. ¿Continuar?'))return;
-  DB.bobinas=[];DB.pallets=[];DB.cierres=[];await saveToCloud(false);toast('Datos borrados');
+  DB.bobinas=[];DB.pallets=[];DB.cierres=[];_skipBobMerge=true;await saveToCloud(false);toast('Datos borrados');
 }
 
 // ════════ ADMIN: operarios ════════
