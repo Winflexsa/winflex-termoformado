@@ -168,6 +168,8 @@ tr.cli-row.open{background:var(--surf2)}
 .tbl-soft tr.stk-zero .prodtag{opacity:.5}
 .tbl-soft .dash{color:var(--border2)}
 .pill-ped{background:var(--mid-l);color:var(--mid);font-size:12px;font-weight:700;padding:2px 9px;border-radius:10px;white-space:nowrap}
+.approx{color:var(--text3);font-weight:400;font-size:12px}
+.real-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--green-d);background:var(--en-l);padding:1px 6px;border-radius:8px;margin-left:7px;vertical-align:middle}
 .tbl-soft tr.clickable{cursor:pointer}
 .tbl-soft .chev{display:inline-block;width:15px;color:var(--text3);transition:transform .15s;font-size:11px}
 .tbl-soft tr.open .chev{transform:rotate(90deg)}
@@ -462,7 +464,7 @@ tr.cli-row.open{background:var(--surf2)}
     <div class="page" id="pg-stock">
       <div class="page-head"><div><div class="page-title">Stock y pallets</div><div class="page-sub">Lo que hay disponible para entregar, en unidades, cajas y pallets</div></div><div class="head-act"><div class="seg fam-seg-ctl"><button data-f="Todos" class="on" onclick="setFam('Todos')">Todos</button><button data-f="Clamshell" onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera" onclick="setFam('Ensaladera')">Ensaladera</button></div><button class="btn btn-xls btn-sm" onclick="exportExcel('stock')">⬇ Excel</button><button class="btn btn-greend btn-sm" onclick="openEstablecerStock()">📋 Establecer stock real</button><button class="btn btn-outline btn-sm" onclick="openAjuste()">🔧 Ajuste de inventario</button><button class="btn btn-outline btn-sm" onclick="openStock()">✏️ Stock inicial</button></div></div>
       <div class="kpis" id="stock-kpis" style="grid-template-columns:repeat(3,1fr)"></div>
-      <div class="card stock-card"><div class="card-head"><div class="card-title" style="margin:0">📦 Stock disponible</div><button class="btn btn-outline btn-sm" id="stk-toggle" onclick="toggleStockMov()">Ver todos</button></div><div class="card-note">Disponible = unidades en planta. <b>Libre</b> = lo que queda después de descontar lo comprometido en pedidos. Cajas y pallets son aproximados (el stock son unidades hasta armar el pallet).</div><div class="tbl-wrap"><table class="tbl-soft stk-table"><thead><tr><th>Producto</th><th class="num">Disponible (u)</th><th class="num">≈ Cajas</th><th class="num">≈ Pallets</th><th class="num">En pedido</th><th class="num">Libre (u)</th></tr></thead><tbody id="stock-tbody"></tbody></table></div></div>
+      <div class="card stock-card"><div class="card-head"><div class="card-title" style="margin:0">📦 Stock disponible</div><button class="btn btn-outline btn-sm" id="stk-toggle" onclick="toggleStockMov()">Ver todos</button></div><div class="card-note"><b>En planta</b> = todo lo que hay físicamente. <b>Disponible</b> = lo que queda libre para vender, después de descontar lo comprometido en pedidos (En planta − En pedido). Cajas y pallets son exactos cuando hay un conteo cargado (<span class="real-tag">contado</span>); el resto son aproximados, calculados desde la producción. Tocá una fila con ▸ para ver el desglose por tipo de caja.</div><div class="tbl-wrap"><table class="tbl-soft stk-table"><thead><tr><th>Producto</th><th class="num">En planta (u)</th><th class="num">Cajas</th><th class="num">Pallets</th><th class="num">En pedido</th><th class="num">Disponible (u)</th></tr></thead><tbody id="stock-tbody"></tbody></table></div></div>
       <div class="card stock-card"><div class="card-title">🔄 Producción y ventas</div><div class="card-note">De dónde sale el stock: lo que entró, se produjo, se vendió y los ajustes manuales.</div><div class="tbl-wrap"><table class="tbl-soft"><thead><tr><th>Producto</th><th class="num">Inicial</th><th class="num">Producido</th><th class="num">Vendido</th><th class="num">Ajustes</th></tr></thead><tbody id="mov-tbody"></tbody></table></div></div>
       <div class="card" id="ajustes-card"><div class="card-title">🔧 Historial de ajustes de inventario</div><div id="ajustes-list"></div></div>
       <div class="card">
@@ -1043,11 +1045,14 @@ function renderStock(){
   // ── Stock disponible ──
   document.getElementById('stock-tbody').innerHTML=shown.map(p=>{
     const sa=stockActual(p),sc=stockCajasP(p),sp=stockPalletsP(p),ep=enPedido(p),libre=sa-ep;const z=sa===0;
-    const boxes=stockByBox(p);const exp=boxes.length>0;
+    const boxes=stockByBox(p);const exp=boxes.length>0;const real=!!stockRealBoxes(p);
     const chev=exp?'<span class="chev">▸</span>':'<span class="chev-sp"></span>';
     const det=exp?`<tr class="stk-detail" style="display:none"><td colspan="6">${boxDetail(p,boxes)}</td></tr>`:'';
-    const libreCell = ep>0 ? `<span style="font-weight:700;color:${libre<0?'var(--bad)':'var(--ok)'}">${fmt(libre)}</span>` : (z?'<span class="dash">—</span>':fmt(libre));
-    return `<tr class="${z?'stk-zero':''}${exp?' clickable':''}" ${exp?'onclick="toggleStockRow(this)"':''}><td>${chev}<span class="prodtag ${ens(p)}">${p}</span></td><td class="num stk-main" style="${sa<0?'color:var(--bad)':''}">${fmt(sa)}</td><td class="num">${z?'<span class="dash">—</span>':fmt(sc)}</td><td class="num">${z?'<span class="dash">—</span>':sp}</td><td class="num">${ep>0?'<span class="pill-ped">⏳ '+fmt(ep)+'</span>':'<span class="dash">—</span>'}</td><td class="num">${libreCell}</td></tr>`+det;
+    const ap=real?'':'<span class="approx">≈</span> ';
+    const cajasCell=z?'<span class="dash">—</span>':ap+fmt(sc);
+    const palletsCell=z?'<span class="dash">—</span>':ap+sp;
+    const dispCell=libre===0?'<span class="dash">—</span>':`<span style="color:${libre<0?'var(--bad)':'var(--ok)'}">${fmt(libre)}</span>`;
+    return `<tr class="${z?'stk-zero':''}${exp?' clickable':''}" ${exp?'onclick="toggleStockRow(this)"':''}><td>${chev}<span class="prodtag ${ens(p)}">${p}</span>${real?'<span class="real-tag">contado</span>':''}</td><td class="num" style="${sa<0?'color:var(--bad)':''}">${fmt(sa)}</td><td class="num">${cajasCell}</td><td class="num">${palletsCell}</td><td class="num">${ep>0?'<span class="pill-ped">⏳ '+fmt(ep)+'</span>':'<span class="dash">—</span>'}</td><td class="num stk-main">${dispCell}</td></tr>`+det;
   }).join('')||`<tr><td colspan="6" class="empty">Sin stock para esta familia</td></tr>`;
   document.getElementById('stk-toggle').textContent=stockSoloMov?'Ver todos':'Sólo con movimiento';
   // ── Producción y ventas ──
