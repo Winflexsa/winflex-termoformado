@@ -369,6 +369,16 @@ tr.cli-row.open{background:var(--surf2)}
 .ent-sec-t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:8px}
 .ent-row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:7px;font-size:13.5px}
 .ent-row .sub{display:block;font-size:11.5px;color:var(--text3)}
+.eo-line{border:1px solid var(--border);border-radius:12px;padding:11px 13px;margin-bottom:9px;background:var(--surf2)}
+.eo-line.eo-done{opacity:.6}
+.eo-line-h{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:8px}
+.eo-meta{font-size:12px;color:var(--text3)}
+.eo-meta b{color:var(--mid)}
+.eo-inp{display:flex;align-items:center;gap:9px}
+.eo-inp input{flex:1;max-width:150px;font-family:'DM Mono',monospace;padding:9px 11px;border:1px solid var(--border);border-radius:9px;font-size:15px;background:var(--surf)}
+.eo-all{border:1px solid var(--green);background:var(--green-l);color:var(--green-d);border-radius:9px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.eo-cj{font-size:12px;color:var(--text3)}
+.eo-ok{font-size:13px;color:var(--ok);font-weight:600}
 .ped-est{border:1px solid var(--border2);border-radius:7px;padding:4px 6px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--surf)}
 .ped-uds{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:flex-end;font-family:inherit;color:var(--text);padding:0}
 .ped-saldo{display:block;font-size:11px;color:var(--mid);font-weight:600;margin-top:1px}
@@ -645,6 +655,17 @@ tr.cli-row.open{background:var(--surf2)}
     </div>
     <div id="ent-done" style="display:none;margin-top:14px;padding:12px;background:var(--green-l);border-radius:10px;color:var(--green);font-weight:600;text-align:center">✓ Pedido entregado por completo — saldo $0</div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-entregas')">Cerrar</button><button class="btn btn-green" id="ent-add-btn" onclick="registrarEntrega()">+ Registrar entrega</button></div>
+  </div>
+</div>
+
+<div class="modal-ov" id="modal-ent-orden">
+  <div class="modal">
+    <h3 id="eo-title">Registrar entrega</h3>
+    <p style="color:var(--text3);font-size:13px;margin:-6px 0 12px">Cargá lo entregado de cada producto. Se descuenta del stock al guardar. Dejá en blanco o 0 lo que no entregaste.</p>
+    <div class="frow c1"><div class="field"><label>Fecha de entrega</label><input type="date" id="eo-fecha"></div></div>
+    <div id="eo-lines"></div>
+    <div class="frow c1"><div class="field"><label>Observación (opcional)</label><input type="text" id="eo-obs" placeholder="Remito, comentario…"></div></div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-ent-orden')">Cancelar</button><button class="btn btn-green" onclick="guardarEntregaOrden()">Guardar entregas</button></div>
   </div>
 </div>
 
@@ -1107,14 +1128,15 @@ function mesNombre(f){if(!f)return '';const mm=parseInt((f.split('-')[1]||''),10
 function presFor(prod){const bx=(prodByBox(prod)||[]).slice().sort((a,b)=>b.uds-a.uds);if(bx.length&&bx[0].uxp)return bx[0].uxp;return (CAT[prod]&&CAT[prod].cajas&&CAT[prod].cajas[0])||1;}
 function orderEstado(items){const act=items.filter(p=>p.estado!=='Cancelado');if(!act.length)return 'Cancelado';if(act.every(p=>pedPendiente(p)===0))return 'Entregado';if(act.some(p=>pedEntregado(p)>0))return 'Parcial';return 'Pendiente';}
 function fillVendOpts(){const sel=document.getElementById('ped-fvend');if(!sel)return;const cur=sel.value;const vs=[...new Set(DB.pedidos.map(p=>p.vendedor).filter(Boolean))].sort();sel.innerHTML='<option value="">Todos los vendedores</option>'+vs.map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');}
-function togglePedDet(id){const r=document.getElementById(id);if(!r)return;const open=r.style.display!=='none';r.style.display=open?'none':'table-row';const c=document.getElementById(id+'-car');if(c)c.textContent=open?'▶':'▼';}
+let _pedOrders=[]; let pedAbiertos=new Set();
+function togglePedDet(oi){const o=_pedOrders[oi];if(!o)return;const open=pedAbiertos.has(o.key);if(open)pedAbiertos.delete(o.key);else pedAbiertos.add(o.key);const r=document.getElementById('peddet-'+oi);if(r)r.style.display=open?'none':'table-row';const c=document.getElementById('peddet-'+oi+'-car');if(c)c.textContent=open?'▶':'▼';}
 function renderPedidos(){
   const fam=DB.pedidos.slice();
   const q=(document.getElementById('ped-q')?.value||'').toLowerCase().trim();
   const fest=document.getElementById('ped-fest')?.value||'',fmes=document.getElementById('ped-fmes')?.value||'',fprod=document.getElementById('ped-fprod')?.value||'',fvend=document.getElementById('ped-fvend')?.value||'';
   fillVendOpts();
   const map=new Map();
-  fam.forEach(p=>{const k=[normName(p.cliente),(p.vendedor||'').toLowerCase().trim(),p.fecha||'',p.entrega||'',(p.oc||'').toLowerCase().trim()].join('|');if(!map.has(k))map.set(k,{cliente:p.cliente,vendedor:p.vendedor,fecha:p.fecha,entrega:p.entrega,oc:p.oc,obs:p.obs,items:[]});const o=map.get(k);o.items.push(p);if(!o.obs&&p.obs)o.obs=p.obs;});
+  fam.forEach(p=>{const k=[normName(p.cliente),(p.vendedor||'').toLowerCase().trim(),p.fecha||'',p.entrega||'',(p.oc||'').toLowerCase().trim()].join('|');if(!map.has(k))map.set(k,{key:k,cliente:p.cliente,vendedor:p.vendedor,fecha:p.fecha,entrega:p.entrega,oc:p.oc,obs:p.obs,items:[]});const o=map.get(k);o.items.push(p);if(!o.obs&&p.obs)o.obs=p.obs;});
   let orders=[...map.values()];
   orders.forEach(o=>o.est=orderEstado(o.items));
   orders=orders.filter(o=>{
@@ -1135,6 +1157,7 @@ function renderPedidos(){
   const nx=document.getElementById('ped-next');if(nx)nx.innerHTML='';
   orders.sort((a,b)=>{const ap=(a.est==='Pendiente'||a.est==='Parcial')?0:1,bp=(b.est==='Pendiente'||b.est==='Parcial')?0:1;if(ap!==bp)return ap-bp;return (b.fecha||'').localeCompare(a.fecha||'');});
   const tb=document.getElementById('ped-tbody');
+  _pedOrders=orders;
   if(!orders.length){tb.innerHTML='<tr><td colspan="7" class="empty" style="padding:40px 0;text-align:center">No hay pedidos para este filtro</td></tr>';return;}
   let html='';
   orders.forEach((o,oi)=>{
@@ -1146,8 +1169,8 @@ function renderPedidos(){
     const acts=single
       ? `<button class="linkact" onclick="event.stopPropagation();openPedido('${o.items[0].id}')" title="Editar">✏️</button><button class="linkact del" onclick="event.stopPropagation();delPedido('${o.items[0].id}')">🗑</button>`
       : `<span style="font-size:11px;color:var(--text3)">${o.items.length} productos</span>`;
-    html+=`<tr class="pedsum st-${o.est}" onclick="togglePedDet('${detId}')">
-      <td style="color:var(--text3);white-space:nowrap"><span id="${detId}-car" class="pedcar">▶</span> <span style="font-size:10px">#${oi+1}</span></td>
+    html+=`<tr class="pedsum st-${o.est}" onclick="togglePedDet(${oi})">
+      <td style="color:var(--text3);white-space:nowrap"><span id="${detId}-car" class="pedcar">${pedAbiertos.has(o.key)?'▼':'▶'}</span> <span style="font-size:10px">#${oi+1}</span></td>
       <td><b>${o.cliente||'—'}</b><span class="sub" style="color:var(--text3)">${o.vendedor||'—'}</span></td>
       <td><div class="dlv"><span>${(o.fecha||'').slice(5)||'s/f'}</span>${u&&u.venc?`<span class="urg ${u.cls}">${u.txt}</span>`:''}</div></td>
       <td style="font-size:12px;color:var(--text2);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${prodSum}</td>
@@ -1168,7 +1191,7 @@ function renderPedidos(){
         <td class="acts"><button class="linkact" onclick="openPedido('${p.id}')" title="Editar">✏️</button><button class="linkact del" onclick="delPedido('${p.id}')">🗑</button></td>
       </tr>`;
     }).join('');
-    html+=`<tr id="${detId}" class="peddet-row" style="display:none"><td colspan="7" style="padding:0">
+    html+=`<tr id="${detId}" class="peddet-row" style="display:${pedAbiertos.has(o.key)?'table-row':'none'}"><td colspan="7" style="padding:0">
       <div class="peddet-panel">
         <div class="peddet-grid">
           <div><span class="kv-l">Cliente</span><span class="kv-v">${o.cliente||'—'}</span></div>
@@ -1178,6 +1201,7 @@ function renderPedidos(){
           <div><span class="kv-l">OC / Ref</span><span class="kv-v">${o.oc||'—'}</span></div>
           <div><span class="kv-l">Estado</span><span class="kv-v"><span class="chip ${PEDCLS[o.est]||''}">${o.est}</span></span></div>
         </div>
+        ${o.est!=='Cancelado'&&o.items.some(p=>pedPendiente(p)>0)?`<div style="margin:0 0 10px"><button class="btn btn-green" onclick="openEntregaOrden('${o.items.map(i=>i.id).join(',')}')">📦 Registrar entrega</button></div>`:''}
         <table class="peddet-sub"><thead><tr><th>Producto</th><th>Presentación</th><th>Cajas</th><th>Unidades</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${itemRows}</tbody></table>
         ${o.obs?`<div class="peddet-obs">💬 <b>Obs:</b> ${o.obs}</div>`:''}
       </div>
@@ -1280,6 +1304,48 @@ async function delEntrega(i){
   const p=DB.pedidos.find(x=>x.id===entPedId);if(!p||!p.entregas)return;
   p.entregas.splice(i,1);recomputeEstadoPed(p);
   renderEntregas();renderPedidos();await saveToCloud();
+}
+let entOrdenIds=[];
+function openEntregaOrden(idsStr){
+  entOrdenIds=(idsStr||'').split(',').filter(Boolean);
+  const items=entOrdenIds.map(id=>DB.pedidos.find(x=>x.id===id)).filter(Boolean);
+  if(!items.length)return;
+  document.getElementById('eo-title').textContent='Registrar entrega · '+(items[0].cliente||'—');
+  sv('eo-fecha',new Date().toISOString().split('T')[0]);sv('eo-obs','');
+  renderEntregaOrden();
+  document.getElementById('modal-ent-orden').classList.add('show');
+}
+function renderEntregaOrden(){
+  document.getElementById('eo-lines').innerHTML=entOrdenIds.map(id=>{
+    const p=DB.pedidos.find(x=>x.id===id);if(!p)return '';
+    const pr=p.caja||presFor(p.prod),ent=pedEntregado(p),pen=pedPendiente(p),done=pen<=0||p.estado==='Cancelado';
+    const meta=p.estado==='Cancelado'?'<span class="eo-meta">cancelado</span>':`<span class="eo-meta">pedido ${fmt(p.uds)} u · entregado ${fmt(ent)} · falta <b>${fmt(pen)}</b></span>`;
+    return `<div class="eo-line ${done?'eo-done':''}">
+      <div class="eo-line-h"><span class="prodtag ${CAT[p.prod]?.fam==='Ensaladera'?'ens':''}">${p.prod}</span>${meta}</div>
+      ${done?(p.estado==='Cancelado'?'':'<div class="eo-ok">✓ entregado completo</div>'):
+        `<div class="eo-inp"><input type="number" inputmode="numeric" id="eo-uds-${id}" placeholder="0" oninput="eoCajas('${id}')">
+         <button type="button" class="eo-all" onclick="eoTodo('${id}',${pen})">todo (${fmt(pen)})</button>
+         <span class="eo-cj" id="eo-cj-${id}"></span></div>`}
+    </div>`;
+  }).join('');
+}
+function eoTodo(id,pen){const el=document.getElementById('eo-uds-'+id);if(el){el.value=pen;eoCajas(id);}}
+function eoCajas(id){const p=DB.pedidos.find(x=>x.id===id);if(!p)return;const pr=p.caja||presFor(p.prod);const u=parseInt(gv('eo-uds-'+id))||0;const el=document.getElementById('eo-cj-'+id);if(el)el.textContent=(u>0&&pr>0)?('≈ '+fmt(Math.round(u/pr))+' cajas'):'';}
+async function guardarEntregaOrden(){
+  const fecha=gv('eo-fecha')||new Date().toISOString().split('T')[0];const obs=gv('eo-obs').trim();
+  let n=0,totU=0;
+  entOrdenIds.forEach(id=>{
+    const p=DB.pedidos.find(x=>x.id===id);if(!p||p.estado==='Cancelado')return;
+    let uds=parseInt(gv('eo-uds-'+id))||0;if(uds<=0)return;
+    const pen=pedPendiente(p);if(pen<=0)return;
+    if(uds>pen)uds=pen;
+    if(!p.entregas)p.entregas=[];
+    p.entregas.push({fecha,uds,obs});recomputeEstadoPed(p);
+    n++;totU+=uds;
+  });
+  if(!n)return toast('No cargaste unidades en ningún producto','warn');
+  closeModal('modal-ent-orden');renderPedidos();
+  const ok=await saveToCloud();if(ok)toast(`Entrega registrada · ${n} producto(s) · ${fmt(totU)} u`);
 }
 function pedEntregado(p){if(p.estado==='Cancelado')return 0;if(p.estado==='Entregado')return p.uds||0;return Math.min((p.entregas||[]).reduce((s,x)=>s+(x.uds||0),0),p.uds||0);}
 function pedPendiente(p){if(p.estado==='Cancelado')return 0;return Math.max(0,(p.uds||0)-pedEntregado(p));}
