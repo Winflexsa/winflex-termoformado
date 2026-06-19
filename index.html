@@ -174,7 +174,7 @@ tr.cli-row.open{background:var(--surf2)}
 .chev-sp{display:inline-block;width:15px}
 .tbl-soft tr.stk-detail td{padding:0 0 8px;border:none;background:transparent}
 .tbl-soft tr.stk-detail:hover td{background:transparent}
-.crono-table{width:100%;border-collapse:separate;border-spacing:0;min-width:880px}
+.crono-table{width:100%;border-collapse:separate;border-spacing:0;min-width:880px;table-layout:fixed}
 .crono-table th,.crono-table td{border:1px solid var(--border)}
 .crono-th{background:linear-gradient(180deg,var(--green-l),var(--green-l2));font-size:13px;text-transform:capitalize;padding:9px 6px;text-align:center;color:var(--green-dd);font-weight:800;position:static}
 .crono-th-t{background:var(--surf2);width:78px;position:static}
@@ -189,14 +189,15 @@ tr.cli-row.open{background:var(--surf2)}
 .crono-turno.t-dia .crono-rowlbl{color:#9a6b12}
 .crono-turno.t-noche .crono-rowlbl{color:#43499a}
 .crono-rowh{font-size:10.5px;color:var(--text3);margin-top:3px}
-.crono-cell{vertical-align:top;padding:7px;min-width:112px;height:78px}
+.crono-cell{vertical-align:top;padding:0;min-width:112px;height:78px}
+.cc-wrap{display:flex;flex-direction:column;height:100%;padding:7px;box-sizing:border-box}
 .crono-seg{display:flex;gap:4px;margin-bottom:7px}
 .crono-seg button{flex:1;border:1.5px solid var(--border2);background:var(--surf);border-radius:7px;padding:4px 3px;font-size:11px;font-weight:800;color:var(--text2);cursor:pointer;display:flex;flex-direction:column;align-items:center;line-height:1.15}
 .crono-seg button small{font-weight:500;color:var(--text3);font-size:9px}
 .crono-seg button.on{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12)}
 .crono-seg button.on small{color:rgba(255,255,255,.9)}
 .crono-seg.ro button{cursor:default;flex:none;padding:6px 14px;flex-direction:row;gap:6px}
-.crono-chip{background:var(--surf);border:1px solid var(--border);border-left:5px solid var(--cl);border-radius:11px;padding:8px 9px 9px;margin-bottom:7px;cursor:pointer;font-size:12px;line-height:1.3;box-shadow:0 1px 3px rgba(20,60,40,.08);transition:transform .1s,box-shadow .1s}
+.crono-chip{background:var(--surf);border:1px solid var(--border);border-left:5px solid var(--cl);border-radius:11px;padding:8px 9px 9px;margin-bottom:7px;cursor:pointer;font-size:12px;line-height:1.3;box-shadow:0 1px 3px rgba(20,60,40,.08);transition:transform .1s,box-shadow .1s;text-align:left}
 .crono-chip:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(20,90,55,.18)}
 .crono-chip.cl{border-left-color:#0d8f6f;background:linear-gradient(160deg,#e7f8ef,#f8fdfb 62%)}
 .crono-chip.ens{border-left-color:#46c089;background:linear-gradient(160deg,#e8f9f0,#f9fdfb 62%)}
@@ -220,7 +221,7 @@ tr.cli-row.open{background:var(--surf2)}
 .crono-chip.evt .cc-top{font-family:'DM Sans';margin-bottom:0}
 .cc-ops{color:var(--text2);font-size:11px;margin-top:3px}
 .cc-obs{color:var(--text3);font-size:11px;font-style:italic;margin-top:2px}
-.crono-add{display:block;width:100%;border:1.5px dashed var(--border2);background:none;color:var(--text3);border-radius:9px;padding:5px;cursor:pointer;font-size:12px;font-weight:700;margin-top:2px}
+.crono-add{display:block;width:100%;border:1.5px dashed var(--border2);background:none;color:var(--text3);border-radius:9px;padding:5px;cursor:pointer;font-size:12px;font-weight:700;margin-top:auto}
 .crono-add:hover{border-color:var(--green);color:var(--green-d);background:var(--green-l)}
 .cr-ops{display:flex;flex-wrap:wrap;gap:7px}
 .op-chip-sm{background:var(--surf2);border:1.5px solid var(--border2);border-radius:16px;padding:5px 11px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2)}
@@ -1849,12 +1850,12 @@ function renderCronograma(){
   const filaDia=`<tr><td class="crono-turno t-dia"><div class="crono-rowlbl">☀️ Día</div><div class="crono-rowh">M1 o M2</div></td>`+dias.map(f=>{
     const dt=diaTurno(f);const cell=slots.filter(s=>s.fecha===f&&(s.turno==='M1'||s.turno==='M2')).sort((a,b)=>(a.prod||'').localeCompare(b.prod||''));
     const seg=`<div class="crono-seg"><button class="${dt==='M1'?'on':''}" onclick="setDiaTurno('${f}','M1')">M1<small>${HORARIO_CR.M1}</small></button><button class="${dt==='M2'?'on':''}" onclick="setDiaTurno('${f}','M2')">M2<small>${HORARIO_CR.M2}</small></button></div>`;
-    return `<td class="crono-cell${f===hoy?' crono-hoy':''}">${seg}${cell.map(chipHTML).join('')}<button class="crono-add" onclick="openCrono(null,'${f}','dia')">＋ producto</button></td>`;
+    return `<td class="crono-cell${f===hoy?' crono-hoy':''}"><div class="cc-wrap">${seg}${cell.map(chipHTML).join('')}<button class="crono-add" onclick="openCrono(null,'${f}','dia')">＋ producto</button></div></td>`;
   }).join('')+`</tr>`;
   // Fila NOCHE (N)
   const filaN=`<tr><td class="crono-turno t-noche"><div class="crono-rowlbl">🌙 Noche</div><span class="turno-pill">N</span><div class="crono-rowh">${HORARIO_CR.N}</div></td>`+dias.map(f=>{
     const cell=slots.filter(s=>s.fecha===f&&s.turno==='N').sort((a,b)=>(a.prod||'').localeCompare(b.prod||''));
-    return `<td class="crono-cell${f===hoy?' crono-hoy':''}">${cell.map(chipHTML).join('')}<button class="crono-add" onclick="openCrono(null,'${f}','noche')">＋ producto</button></td>`;
+    return `<td class="crono-cell${f===hoy?' crono-hoy':''}"><div class="cc-wrap">${cell.map(chipHTML).join('')}<button class="crono-add" onclick="openCrono(null,'${f}','noche')">＋ producto</button></div></td>`;
   }).join('')+`</tr>`;
   document.getElementById('crono-grid').innerHTML='<table class="crono-table">'+head+filaDia+filaN+'</table>';
 }
