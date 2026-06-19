@@ -168,8 +168,6 @@ tr.cli-row.open{background:var(--surf2)}
 .tbl-soft tr.stk-zero .prodtag{opacity:.5}
 .tbl-soft .dash{color:var(--border2)}
 .pill-ped{background:var(--mid-l);color:var(--mid);font-size:12px;font-weight:700;padding:2px 9px;border-radius:10px;white-space:nowrap}
-.approx{color:var(--text3);font-weight:400;font-size:12px}
-.real-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--green-d);background:var(--en-l);padding:1px 6px;border-radius:8px;margin-left:7px;vertical-align:middle}
 .tbl-soft tr.clickable{cursor:pointer}
 .tbl-soft .chev{display:inline-block;width:15px;color:var(--text3);transition:transform .15s;font-size:11px}
 .tbl-soft tr.open .chev{transform:rotate(90deg)}
@@ -206,7 +204,7 @@ tr.cli-row.open{background:var(--surf2)}
 .cc-fill{height:100%;border-radius:4px;transition:width .3s}
 .cc-fill.pg-ok{background:#15a463}.cc-fill.pg-mid{background:#ef9a3d}.cc-fill.pg-low{background:#e35d52}
 .cc-prn{font-size:10.5px;font-weight:800}
-.cc-prn.pg-ok{color:#0e7a49}.cc-prn.pg-mid{color:#a5701a}.cc-prn.pg-low{color:#b3392f}.cc-prn.pg-real{color:#0e7a49}.cc-prn.pg-zero{color:var(--text3)}
+.cc-prn.pg-ok{color:#0e7a49}.cc-prn.pg-mid{color:#a5701a}.cc-prn.pg-low{color:#b3392f}.cc-prn.pg-real{color:#0e7a49}.cc-prn.pg-zero{color:var(--text3)}.cc-prn.pg-bob{color:#2a6fb0}
 .cc-meta{font-family:'DM Sans';font-weight:700;font-size:10.5px;background:rgba(0,0,0,.07);padding:1px 7px;border-radius:9px;white-space:nowrap}
 .cc-ops{color:var(--text2);font-size:11px;margin-top:3px}
 .cc-obs{color:var(--text3);font-size:11px;font-style:italic;margin-top:2px}
@@ -464,7 +462,7 @@ tr.cli-row.open{background:var(--surf2)}
     <div class="page" id="pg-stock">
       <div class="page-head"><div><div class="page-title">Stock y pallets</div><div class="page-sub">Lo que hay disponible para entregar, en unidades, cajas y pallets</div></div><div class="head-act"><div class="seg fam-seg-ctl"><button data-f="Todos" class="on" onclick="setFam('Todos')">Todos</button><button data-f="Clamshell" onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera" onclick="setFam('Ensaladera')">Ensaladera</button></div><button class="btn btn-xls btn-sm" onclick="exportExcel('stock')">⬇ Excel</button><button class="btn btn-greend btn-sm" onclick="openEstablecerStock()">📋 Establecer stock real</button><button class="btn btn-outline btn-sm" onclick="openAjuste()">🔧 Ajuste de inventario</button><button class="btn btn-outline btn-sm" onclick="openStock()">✏️ Stock inicial</button></div></div>
       <div class="kpis" id="stock-kpis" style="grid-template-columns:repeat(3,1fr)"></div>
-      <div class="card stock-card"><div class="card-head"><div class="card-title" style="margin:0">📦 Stock disponible</div><button class="btn btn-outline btn-sm" id="stk-toggle" onclick="toggleStockMov()">Ver todos</button></div><div class="card-note"><b>En planta</b> = todo lo que hay físicamente. <b>Disponible</b> = lo que queda libre para vender, después de descontar lo comprometido en pedidos (En planta − En pedido). Cajas y pallets son exactos cuando hay un conteo cargado (<span class="real-tag">contado</span>); el resto son aproximados, calculados desde la producción. Tocá una fila con ▸ para ver el desglose por tipo de caja.</div><div class="tbl-wrap"><table class="tbl-soft stk-table"><thead><tr><th>Producto</th><th class="num">En planta (u)</th><th class="num">Cajas</th><th class="num">Pallets</th><th class="num">En pedido</th><th class="num">Disponible (u)</th></tr></thead><tbody id="stock-tbody"></tbody></table></div></div>
+      <div class="card stock-card"><div class="card-head"><div class="card-title" style="margin:0">📦 Stock disponible</div><button class="btn btn-outline btn-sm" id="stk-toggle" onclick="toggleStockMov()">Ver todos</button></div><div class="card-note"><b>En planta</b> = todo lo que hay físicamente. <b>Disponible</b> = lo que queda libre para vender, después de descontar lo comprometido en pedidos (En planta − En pedido). Cajas y pallets son aproximados: se calculan a partir de las unidades en planta y la mezcla de formatos. Tocá una fila con ▸ para ver el desglose por tipo de caja.</div><div class="tbl-wrap"><table class="tbl-soft stk-table"><thead><tr><th>Producto</th><th class="num">En planta (u)</th><th class="num">Cajas</th><th class="num">Pallets</th><th class="num">En pedido</th><th class="num">Disponible (u)</th></tr></thead><tbody id="stock-tbody"></tbody></table></div></div>
       <div class="card stock-card"><div class="card-title">🔄 Producción y ventas</div><div class="card-note">De dónde sale el stock: lo que entró, se produjo, se vendió y los ajustes manuales.</div><div class="tbl-wrap"><table class="tbl-soft"><thead><tr><th>Producto</th><th class="num">Inicial</th><th class="num">Producido</th><th class="num">Vendido</th><th class="num">Ajustes</th></tr></thead><tbody id="mov-tbody"></tbody></table></div></div>
       <div class="card" id="ajustes-card"><div class="card-title">🔧 Historial de ajustes de inventario</div><div id="ajustes-list"></div></div>
       <div class="card">
@@ -921,12 +919,14 @@ function realPalletsP(p){const r=stockRealBoxes(p);if(!r)return 0;return Math.ro
 function realUdsP(p){const r=stockRealBoxes(p);if(!r)return 0;return r.reduce((s,x)=>s+(+x.cajas||0)*(+x.uxp||0),0);}
 function palletsTotalP(p){return palletsProd(p)+realPalletsP(p);}
 function stockByBox(p){
-  const real=stockRealBoxes(p);
-  if(real){return real.map(x=>{const uxp=+x.uxp||0,cajas=+x.cajas||0,cpp=(+x.cpp)||cajasXPallet(p,uxp)||0;const stU=cajas*uxp;return {uxp,prodUds:stU,prodCajas:cajas,frac:0,stU,stC:cajas,stP:cpp>0?Math.round(cajas/cpp*10)/10:0,cpp,real:true};});}
-  const boxes=prodByBox(p);const totProd=boxes.reduce((s,x)=>s+x.uds,0);
-  if(!boxes.length||totProd<=0)return [];
   const sa=stockActual(p);
-  return boxes.map(x=>{const frac=x.uds/totProd;const stU=sa*frac;const stC=x.uxp>0?stU/x.uxp:0;const cpp=cajasXPallet(p,x.uxp)||0;return {uxp:x.uxp,prodUds:x.uds,prodCajas:x.cajas,frac,stU:Math.round(stU),stC:Math.round(stC),stP:cpp>0?Math.round(stC/cpp*10)/10:0,cpp};});
+  const real=stockRealBoxes(p);
+  const mix=real
+    ? real.map(x=>({uxp:+x.uxp||0,w:(+x.cajas||0)*(+x.uxp||0),cpp:(+x.cpp)||cajasXPallet(p,+x.uxp)||0}))
+    : prodByBox(p).map(x=>({uxp:x.uxp,w:x.uds,cpp:cajasXPallet(p,x.uxp)||0}));
+  const totW=mix.reduce((s,x)=>s+x.w,0);
+  if(!mix.length||totW<=0)return [];
+  return mix.map(x=>{const frac=x.w/totW;const stU=sa*frac;const stC=x.uxp>0?stU/x.uxp:0;const cpp=x.cpp;return {uxp:x.uxp,frac,stU:Math.round(stU),stC:Math.round(stC),stP:cpp>0?Math.round(stC/cpp*10)/10:0,cpp};});
 }
 function eficProm(p){const g={};DB.bobinas.filter(b=>b.prod===p).forEach(b=>{const k=b.fecha+'|'+b.turno;g[k]=(g[k]||0)+(b.uds||0);});const vs=[];Object.keys(g).forEach(k=>{const t=k.split('|')[1];const o=objetivoTurno(p,t);if(o>0)vs.push(g[k]/o*100);});return vs.length?Math.round(vs.reduce((a,v)=>a+v,0)/vs.length):null;}
 function turnosProd(p){const s=new Set();DB.bobinas.filter(b=>b.prod===p).forEach(b=>s.add(b.fecha+'|'+b.turno));return s.size;}
@@ -1029,11 +1029,10 @@ function toggleDia(row){const d=row.nextElementSibling;const op=row.classList.to
 
 let stockSoloMov=true;
 function boxDetail(p,boxes){
-  const esReal=boxes[0]&&boxes[0].real;
   const tU=boxes.reduce((s,x)=>s+x.stU,0),tC=boxes.reduce((s,x)=>s+x.stC,0),tP=Math.round(boxes.reduce((s,x)=>s+x.stP,0)*10)/10;
-  const ttl=esReal?`Stock <b>${p}</b> contado en planta, por tipo de caja`:`Stock de <b>${p}</b> repartido por formato de caja`;
-  const note=esReal?'Unidades = cajas × u/caja&nbsp;&nbsp;·&nbsp;&nbsp;Pallets = cajas ÷ cajas por pallet':'Cajas = unidades ÷ unidades por caja&nbsp;&nbsp;·&nbsp;&nbsp;Pallets = cajas ÷ cajas por pallet';
-  return `<div class="boxwrap"><div class="boxttl">${ttl}</div><table class="boxtbl"><thead><tr><th>Tamaño de caja</th><th>Unidades</th><th>Cajas</th><th>Pallets</th></tr></thead><tbody>${boxes.map(x=>`<tr><td class="bx-fmt"><b>${fmt(x.uxp)}</b> u/caja${x.cpp?`<span>${x.cpp} cajas por pallet</span>`:'<span>—</span>'}</td><td class="bx-n">${fmt(x.stU)}</td><td class="bx-n">${fmt(x.stC)}</td><td class="bx-n">${x.stP?x.stP:'—'}</td></tr>`).join('')}<tr class="bx-tot"><td>Total disponible</td><td class="bx-n">${fmt(tU)}</td><td class="bx-n">${fmt(tC)}</td><td class="bx-n">${tP}</td></tr></tbody></table><div class="boxnote">${note}</div></div>`;
+  const ttl=`Stock de <b>${p}</b> en planta, repartido por tipo de caja`;
+  const note='Repartido según la mezcla de formatos, proporcional a las unidades en planta.&nbsp;&nbsp;·&nbsp;&nbsp;Cajas = unidades ÷ u/caja&nbsp;&nbsp;·&nbsp;&nbsp;Pallets = cajas ÷ cajas por pallet';
+  return `<div class="boxwrap"><div class="boxttl">${ttl}</div><table class="boxtbl"><thead><tr><th>Tamaño de caja</th><th>Unidades</th><th>Cajas</th><th>Pallets</th></tr></thead><tbody>${boxes.map(x=>`<tr><td class="bx-fmt"><b>${fmt(x.uxp)}</b> u/caja${x.cpp?`<span>${x.cpp} cajas por pallet</span>`:'<span>—</span>'}</td><td class="bx-n">${fmt(x.stU)}</td><td class="bx-n">${fmt(x.stC)}</td><td class="bx-n">${x.stP?x.stP:'—'}</td></tr>`).join('')}<tr class="bx-tot"><td>Total en planta</td><td class="bx-n">${fmt(tU)}</td><td class="bx-n">${fmt(tC)}</td><td class="bx-n">${tP}</td></tr></tbody></table><div class="boxnote">${note}</div></div>`;
 }
 function toggleStockRow(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('stk-detail'))d.style.display=op?'table-row':'none';}
 function tieneMov(p){return producido(p)>0||vendido(p)>0||stockActual(p)!==0||enPedido(p)>0||(stockCfg(p).ini||0)>0||ajustesProd(p)!==0;}
@@ -1045,14 +1044,13 @@ function renderStock(){
   // ── Stock disponible ──
   document.getElementById('stock-tbody').innerHTML=shown.map(p=>{
     const sa=stockActual(p),sc=stockCajasP(p),sp=stockPalletsP(p),ep=enPedido(p),libre=sa-ep;const z=sa===0;
-    const boxes=stockByBox(p);const exp=boxes.length>0;const real=!!stockRealBoxes(p);
+    const boxes=stockByBox(p);const exp=boxes.length>0;
     const chev=exp?'<span class="chev">▸</span>':'<span class="chev-sp"></span>';
     const det=exp?`<tr class="stk-detail" style="display:none"><td colspan="6">${boxDetail(p,boxes)}</td></tr>`:'';
-    const ap=real?'':'<span class="approx">≈</span> ';
-    const cajasCell=z?'<span class="dash">—</span>':ap+fmt(sc);
-    const palletsCell=z?'<span class="dash">—</span>':ap+sp;
+    const cajasCell=z?'<span class="dash">—</span>':fmt(sc);
+    const palletsCell=z?'<span class="dash">—</span>':sp;
     const dispCell=libre===0?'<span class="dash">—</span>':`<span style="color:${libre<0?'var(--bad)':'var(--ok)'}">${fmt(libre)}</span>`;
-    return `<tr class="${z?'stk-zero':''}${exp?' clickable':''}" ${exp?'onclick="toggleStockRow(this)"':''}><td>${chev}<span class="prodtag ${ens(p)}">${p}</span>${real?'<span class="real-tag">contado</span>':''}</td><td class="num" style="${sa<0?'color:var(--bad)':''}">${fmt(sa)}</td><td class="num">${cajasCell}</td><td class="num">${palletsCell}</td><td class="num">${ep>0?'<span class="pill-ped">⏳ '+fmt(ep)+'</span>':'<span class="dash">—</span>'}</td><td class="num stk-main">${dispCell}</td></tr>`+det;
+    return `<tr class="${z?'stk-zero':''}${exp?' clickable':''}" ${exp?'onclick="toggleStockRow(this)"':''}><td>${chev}<span class="prodtag ${ens(p)}">${p}</span></td><td class="num" style="${sa<0?'color:var(--bad)':''}">${fmt(sa)}</td><td class="num">${cajasCell}</td><td class="num">${palletsCell}</td><td class="num">${ep>0?'<span class="pill-ped">⏳ '+fmt(ep)+'</span>':'<span class="dash">—</span>'}</td><td class="num stk-main">${dispCell}</td></tr>`+det;
   }).join('')||`<tr><td colspan="6" class="empty">Sin stock para esta familia</td></tr>`;
   document.getElementById('stk-toggle').textContent=stockSoloMov?'Ver todos':'Sólo con movimiento';
   // ── Producción y ventas ──
@@ -1814,7 +1812,7 @@ function cronoOperarios(){return (DB.operarios&&DB.operarios.length)?DB.operario
 // El turno de día es M1 O M2 (excluyente). diaTurno deriva el turno del día desde lo cargado.
 function diaTurno(f){const s=(DB.cronograma||[]).find(x=>x.fecha===f&&(x.turno==='M1'||x.turno==='M2'));return s?s.turno:(cronoDiaPref[f]||'M1');}
 async function setDiaTurno(f,t){cronoDiaPref[f]=t;let ch=false;(DB.cronograma||[]).forEach(x=>{if(x.fecha===f&&(x.turno==='M1'||x.turno==='M2')){if(x.turno!==t)ch=true;x.turno=t;}});renderCronograma();if(ch){const ok=await saveToCloud();if(ok)toast('Turno de día actualizado ✓');}}
-function cronoReal(fecha,turno,prod){const ts=turno==='N'?['N']:['M1','M2'];const pals=(DB.pallets||[]).filter(x=>x.fecha===fecha&&ts.includes(x.turno)&&x.prod===prod);return {pal:pals.length,uds:pals.reduce((s,p)=>s+(p.uds||0),0)};}
+function cronoReal(fecha,turno,prod){const ts=turno==='N'?['N']:['M1','M2'];const pals=(DB.pallets||[]).filter(x=>x.fecha===fecha&&ts.includes(x.turno)&&x.prod===prod);const bobs=(DB.bobinas||[]).filter(x=>x.fecha===fecha&&ts.includes(x.turno)&&x.prod===prod);return {pal:pals.length,uds:pals.reduce((s,p)=>s+(p.uds||0),0),bUds:bobs.reduce((s,b)=>s+(b.uds||0),0),bCajas:bobs.reduce((s,b)=>s+(b.cajas||0),0)};}
 function renderCronograma(){
   if(!document.getElementById('crono-grid'))return;
   cronoInit();
@@ -1839,7 +1837,8 @@ function renderCronograma(){
     let prog='';
     if(s.meta>0){const pct=Math.min(100,Math.round(r.pal/s.meta*100));const cls=r.pal>=s.meta?'pg-ok':(r.pal>0?'pg-mid':'pg-zero');prog=`<div class="cc-prog"><div class="cc-bar"><div class="cc-fill ${cls}" style="width:${pct}%"></div></div><span class="cc-prn ${cls}">${fmt(r.pal)}/${fmt(s.meta)} pal · ${pct}%</span></div>`;}
     else if(r.pal>0){prog=`<div class="cc-prog"><span class="cc-prn pg-real">✓ ${fmt(r.pal)} pal hechos</span></div>`;}
-    return `<div class="crono-chip ${ens?'ens':'cl'}" onclick="openCrono('${s.id}')"><div class="cc-top"><span class="cc-name">${s.prod}</span></div>${prog}${(s.operarios&&s.operarios.length)?`<div class="cc-ops">👷 ${s.operarios.join(', ')}</div>`:''}${s.obs?`<div class="cc-obs">${s.obs}</div>`:''}</div>`;};
+    const live=r.bUds>0?`<div class="cc-prog"><span class="cc-prn pg-bob">📦 ${fmt(r.bCajas)} cajas · ${fmt(r.bUds)} u prod.</span></div>`:'';
+    return `<div class="crono-chip ${ens?'ens':'cl'}" onclick="openCrono('${s.id}')"><div class="cc-top"><span class="cc-name">${s.prod}</span></div>${prog}${live}${(s.operarios&&s.operarios.length)?`<div class="cc-ops">👷 ${s.operarios.join(', ')}</div>`:''}${s.obs?`<div class="cc-obs">${s.obs}</div>`:''}</div>`;};
   // Fila DÍA (M1 o M2, excluyente por día)
   const filaDia=`<tr><td class="crono-turno"><div class="crono-rowlbl">☀️ Día</div><div class="crono-rowh">M1 o M2</div></td>`+dias.map(f=>{
     const dt=diaTurno(f);const cell=slots.filter(s=>s.fecha===f&&(s.turno==='M1'||s.turno==='M2')).sort((a,b)=>(a.prod||'').localeCompare(b.prod||''));
