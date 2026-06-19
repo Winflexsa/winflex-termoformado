@@ -900,6 +900,18 @@ function abrirModulo(pg){
 }
 // Compatibilidad: todas las llamadas a goTo(...) abren ahora una ventana.
 window.goTo=abrirModulo;
+// Auto-sincronización: cuando una ventana de módulo vuelve a estar visible/enfocada,
+// trae lo último de la nube para que refleje los cambios hechos en otras ventanas.
+let _lastSync=Date.now();
+function autoResync(){
+  if(typeof dirty!=='undefined'&&dirty)return;            // no pisar cambios sin guardar
+  if(document.querySelector('.modal-ov.show'))return;      // no interrumpir si hay un modal abierto
+  if(Date.now()-_lastSync<4000)return;                     // como mucho 1 vez cada 4s
+  _lastSync=Date.now();
+  try{loadFromCloud();}catch(_){}
+}
+window.addEventListener('focus',autoResync);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')autoResync();});
 function setFam(f){famFilter=f;document.querySelectorAll('.fam-seg-ctl button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));renderAll();}
 function famSegHTML(){return `<div class="seg fam-seg-ctl"><button data-f="Todos"${famFilter==='Todos'?' class="on"':''} onclick="setFam('Todos')">Todos</button><button data-f="Clamshell"${famFilter==='Clamshell'?' class="on"':''} onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera"${famFilter==='Ensaladera'?' class="on"':''} onclick="setFam('Ensaladera')">Ensaladera</button></div>`;}
 
