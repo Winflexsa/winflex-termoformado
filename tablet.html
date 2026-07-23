@@ -407,13 +407,14 @@ const OPERARIOS_DEFAULT=[
 const PIN_ADMIN='9090';
 
 // ════════ ESTADO ════════
-let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},operarios:[]};
+let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},operarios:[],bobinasBorradas:[]};
 DB.operarios=JSON.parse(localStorage.getItem('wf_termo_operarios')||'null')||OPERARIOS_DEFAULT.slice();
 const DEFAULT_MASTER_KEY='$2a$10$8p4t41BnTv.9Ls.4kFLhouDMqJGQEd5LQlBYEz8n1y6nH/3dFq27G';
 const DEFAULT_BIN_ID='6a243e42da38895dfe915231';
 let CFG={apiKey:DEFAULT_MASTER_KEY,binId:DEFAULT_BIN_ID};
 let cloudExtra={};
-function mergeById(localArr,cloudArr){const m=new Map();(cloudArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});(localArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});return [...m.values()];}
+function mergeById(localArr,cloudArr){const m=new Map();(cloudArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});(localArr||[]).forEach(x=>{if(!x||x.id==null)return;const c=m.get(x.id);if(!c){m.set(x.id,x);return;}const lm=x.mod||x.ts||'',cm=c.mod||c.ts||'';if(lm>=cm)m.set(x.id,x);});return [...m.values()];}
+function mergeTombs(a,b,extraIds){const m=new Map();const add=t=>{if(t&&t.id!=null&&!m.has(t.id))m.set(t.id,t);};(b||[]).forEach(add);(a||[]).forEach(add);(extraIds||[]).forEach(id=>{if(id!=null&&!m.has(id))m.set(id,{id,ts:new Date().toISOString()});});const lim=new Date(Date.now()-90*864e5).toISOString();return [...m.values()].filter(t=>(t.ts||'9')>lim);}
 let bobinasDeleted=new Set(); let _skipBobMerge=false;
 let sel={turno:null,prod:null,ops:[],encargado:null};
 let curUser=null;
@@ -476,7 +477,8 @@ async function loadFromCloud(){
     const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});
     if(!res.ok)throw new Error('HTTP '+res.status);
     const r=(await res.json()).record||{};
-    DB.bobinas=r.bobinas||[];DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};
+    DB.bobinasBorradas=r.bobinasBorradas||[];const _tIds=new Set(DB.bobinasBorradas.map(t=>t.id));
+    DB.bobinas=(r.bobinas||[]).filter(b=>!_tIds.has(b.id));DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};
     cloudExtra={ajustes:r.ajustes,clientes:r.clientes,cronograma:r.cronograma,pedidos:r.pedidos,stockConfig:r.stockConfig};
     DB.operarios=(r.operarios&&r.operarios.length)?r.operarios:DB.operarios;
     localStorage.setItem('wf_termo_operarios',JSON.stringify(DB.operarios));
@@ -499,7 +501,11 @@ async function saveToCloud(isNew){
       let extra=cloudExtra; let latest=null;
       try{const g=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});if(g.ok){latest=(await g.json()).record||{};extra={ajustes:latest.ajustes,clientes:latest.clientes,cronograma:latest.cronograma,pedidos:latest.pedidos,stockConfig:latest.stockConfig};cloudExtra=extra;}}catch(_){}
       const payload=Object.assign({},mine);
-      if(latest&&!_skipBobMerge){payload.bobinas=mergeById(DB.bobinas,latest.bobinas).filter(b=>!bobinasDeleted.has(b.id));}
+      const tombs=mergeTombs(DB.bobinasBorradas,latest?latest.bobinasBorradas:null,[...bobinasDeleted]);
+      const tombIds=new Set(tombs.map(t=>t.id));
+      DB.bobinasBorradas=tombs;payload.bobinasBorradas=tombs;
+      if(latest&&!_skipBobMerge){payload.bobinas=mergeById(DB.bobinas,latest.bobinas);}
+      payload.bobinas=(payload.bobinas||[]).filter(b=>!tombIds.has(b.id));
       _skipBobMerge=false;
       if(extra){['ajustes','clientes','cronograma','pedidos','stockConfig'].forEach(k=>{if(extra[k]!==undefined)payload[k]=extra[k];});}
       res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},body:JSON.stringify(payload)});
@@ -770,6 +776,7 @@ async function adminSaveBob(){
   b.prod=gv('eb-prod');b.fam=CAT[b.prod].fam;b.nbob=gv('eb-nbob');b.partida=gv('eb-partida');
   b.kg=parseFloat(gv('eb-kg'))||0;b.metros=parseFloat(gv('eb-metros'))||0;b.cini=parseInt(gv('eb-cini'))||0;b.cfin=parseInt(gv('eb-cfin'))||0;
   b.uxp=parseInt(gv('eb-uxp'))||0;b.cajas=parseInt(gv('eb-cajas'))||0;b.uds=parseInt(gv('eb-uds'))||0;b.obs=gv('eb-obs');
+  b.mod=new Date().toISOString();
   closeModal('modal-eb');await saveToCloud(false);toast('Bobina editada ✓');
 }
 async function adminDelBob(id){

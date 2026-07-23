@@ -803,13 +803,14 @@ const CLIENTES=['Apici','Arandalia','Arandeira','Berries del Sol','Alif Agro','B
 const USERS={'1205':{n:'Matías',r:'Administrador'},'3080':{n:'Jonathan',r:'Ingeniería'},'0035':{n:'Agustín',r:'Planta'},'0104':{n:'Mirta',r:'Administración'},'9090':{n:'Admin',r:'Administrador'}};
 
 // ════════ ESTADO ════════
-let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},ajustes:[],clientes:[],cronograma:[],operarios:[]};
+let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},ajustes:[],clientes:[],cronograma:[],operarios:[],bobinasBorradas:[]};
 let LOAD_OK=false; // true solo si loadFromCloud leyó bien la nube; bloquea saveToCloud si la carga falló
 const DEFAULT_MASTER_KEY='$2a$10$8p4t41BnTv.9Ls.4kFLhouDMqJGQEd5LQlBYEz8n1y6nH/3dFq27G';
 const DEFAULT_BIN_ID='6a243e42da38895dfe915231';
 let CFG={apiKey:DEFAULT_MASTER_KEY,binId:DEFAULT_BIN_ID};
 let curUser=null, editPedId=null, famFilter='Todos', dirty=false, prodDirty=false;
-function mergeById(localArr,cloudArr){const m=new Map();(cloudArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});(localArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});return [...m.values()];}
+function mergeById(localArr,cloudArr){const m=new Map();(cloudArr||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});(localArr||[]).forEach(x=>{if(!x||x.id==null)return;const c=m.get(x.id);if(!c){m.set(x.id,x);return;}const lm=x.mod||x.ts||'',cm=c.mod||c.ts||'';if(lm>=cm)m.set(x.id,x);});return [...m.values()];}
+function mergeTombs(a,b,extraIds){const m=new Map();const add=t=>{if(t&&t.id!=null&&!m.has(t.id))m.set(t.id,t);};(b||[]).forEach(add);(a||[]).forEach(add);(extraIds||[]).forEach(id=>{if(id!=null&&!m.has(id))m.set(id,{id,ts:new Date().toISOString()});});const lim=new Date(Date.now()-90*864e5).toISOString();return [...m.values()].filter(t=>(t.ts||'9')>lim);}
 const gv=id=>document.getElementById(id).value;
 const sv=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
 const fmt=n=>(Math.round(n)||0).toLocaleString('es-AR');
@@ -833,24 +834,28 @@ async function loadFromCloud(force){
     const cloudN=(r.bobinas||[]).length+(r.pedidos||[]).length;
     const memN=DB.bobinas.length+DB.pedidos.length;
     if(cloudN===0&&memN>0&&!force){if(!confirm('La nube está vacía pero este equipo tiene '+memN+' registros. ¿Sobrescribir con lo vacío? (Cancelá para conservar lo de este equipo)')){setSync('ok','Se conservó lo local');return;}}
-    DB.bobinas=r.bobinas||[];DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};DB.ajustes=r.ajustes||[];DB.clientes=(r.clientes&&r.clientes.length)?r.clientes:seedClientes();DB.cronograma=r.cronograma||[];DB.operarios=r.operarios||[];
+    DB.bobinasBorradas=r.bobinasBorradas||[];const _tIds=new Set(DB.bobinasBorradas.map(t=>t.id));
+    DB.bobinas=(r.bobinas||[]).filter(b=>!_tIds.has(b.id));DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};DB.ajustes=r.ajustes||[];DB.clientes=(r.clientes&&r.clientes.length)?r.clientes:seedClientes();DB.cronograma=r.cronograma||[];DB.operarios=r.operarios||[];
     dirty=false;setSync('ok','Sincronizado');refreshClienteDatalist();renderAll();
   }catch(e){LOAD_OK=false;setSync('err','Sin conexión — guardado bloqueado, recargá');const l=localStorage.getItem('wf_termo_local');if(l){const d=JSON.parse(l);Object.assign(DB,d);renderAll();}}
 }
 async function saveToCloud(){
   if(!LOAD_OK){setSync('err','Guardado bloqueado: la carga falló. Recargá.');toast('⚠ No se guardó: la carga inicial no se completó. Recargá la página antes de operar.','warn');return false;}
   setSync('loading','Guardando...');
-  localStorage.setItem('wf_termo_local',JSON.stringify({bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,ajustes:DB.ajustes,clientes:DB.clientes,cronograma:DB.cronograma,operarios:DB.operarios}));
+  localStorage.setItem('wf_termo_local',JSON.stringify({bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,ajustes:DB.ajustes,clientes:DB.clientes,cronograma:DB.cronograma,operarios:DB.operarios,bobinasBorradas:DB.bobinasBorradas}));
   dirty=true;
   if(!CFG.apiKey||!CFG.binId){setSync('err','Sin bin configurado');toast('Configurá la sincronización primero','warn');return false;}
   try{
     let latest={};
     try{const g=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});if(g.ok)latest=(await g.json()).record||{};}catch(_){}
     const pick=(k)=>latest[k]!==undefined?latest[k]:DB[k];
+    const tombs=mergeTombs(DB.bobinasBorradas,latest.bobinasBorradas,[...bobinasDeleted]);
+    const tombIds=new Set(tombs.map(t=>t.id));
+    DB.bobinasBorradas=tombs;
     const payload={
       pedidos:DB.pedidos,clientes:DB.clientes,ajustes:DB.ajustes,cronograma:DB.cronograma,stockConfig:DB.stockConfig,
-      pallets:pick('pallets'),cierres:pick('cierres'),operarios:pick('operarios'),
-      bobinas: prodDirty ? mergeById(DB.bobinas,latest.bobinas).filter(b=>!bobinasDeleted.has(b.id)) : pick('bobinas')
+      pallets:pick('pallets'),cierres:pick('cierres'),operarios:pick('operarios'),bobinasBorradas:tombs,
+      bobinas:(prodDirty ? mergeById(DB.bobinas,latest.bobinas) : pick('bobinas')).filter(b=>!tombIds.has(b.id))
     };
     const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},body:JSON.stringify(payload)});
     if(!res.ok)throw new Error('HTTP '+res.status);
@@ -1590,6 +1595,7 @@ async function saveBobina(){
   b.uxp=uxp;b.uds=uds;b.cajas=uxp>0?Math.round(uds/uxp):(b.cajas||0);b.kg=parseInt(gv('eb-kg'))||0;
   b.nbob=gv('eb-nbob').trim();b.partida=gv('eb-partida').trim();
   b.operarios=gv('eb-ops').split(',').map(x=>x.trim()).filter(Boolean);b.obs=gv('eb-obs').trim();
+  b.mod=new Date().toISOString();
   prodDirty=true;closeModal('modal-editprod');
   const ok=await saveToCloud();if(ok)toast('Producción actualizada ✓');
 }
