@@ -749,7 +749,7 @@ tr.cli-row.open{background:var(--surf2)}
 <!-- MODAL ESTABLECER STOCK REAL -->
 <div class="modal-ov" id="modal-stockreal">
   <div class="modal" style="max-width:760px"><h3>Establecer stock real</h3>
-    <p style="font-size:13px;color:var(--text2);margin:0 0 12px">Cargá el stock <b>contado en planta</b> por <b>tipo de caja</b> y <b>cantidad de cajas</b>. Las unidades y los pallets se calculan solos (<code>unidades = cajas × u/caja</code>). Podés agregar varios tipos de caja por producto. Dejá un producto sin cajas para no tocarlo.</p>
+    <p style="font-size:13px;color:var(--text2);margin:0 0 12px">Cargá el stock <b>contado en planta</b> por <b>tipo de caja</b> y <b>cantidad de cajas</b>. Las unidades y los pallets se calculan solos (<code>unidades = cajas × u/caja</code>). Podés agregar varios tipos de caja por producto. <b>Dejá un producto en blanco para no tocarlo</b> (los campos arrancan vacíos a propósito: el gris muestra el recuento anterior, sólo de referencia). Lo que cargues <b>reemplaza</b> el stock del sistema de ese producto, así que cargá <b>todos</b> sus tipos de caja.</p>
     <div id="sr-body" style="max-height:58vh;overflow:auto;padding-right:4px"></div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-stockreal')">Cancelar</button><button class="btn btn-green" onclick="confirmarStockReal()">Aplicar stock real</button></div>
   </div>
@@ -982,9 +982,17 @@ function palletsTotalP(p){return palletsProd(p)+realPalletsP(p);}
 function stockByBox(p){
   const sa=stockActual(p);
   const real=stockRealBoxes(p);
-  const mix=real
-    ? real.map(x=>({uxp:+x.uxp||0,w:(+x.cajas||0)*(+x.uxp||0),cpp:(+x.cpp)||cajasXPallet(p,+x.uxp)||0}))
-    : prodByBox(p).map(x=>({uxp:x.uxp,w:x.uds,cpp:cajasXPallet(p,x.uxp)||0}));
+  let mix;
+  if(real){
+    // base: lo contado en planta + la producción posterior al recuento, por tipo de caja
+    const fReal=((DB.stockConfig[p]||{}).real||{}).fecha||'';
+    const m={};
+    real.forEach(x=>{const u=+x.uxp||0;if(!u)return;m[u]=m[u]||{uxp:u,w:0,cpp:(+x.cpp)||cajasXPallet(p,u)||0};m[u].w+=(+x.cajas||0)*u;});
+    DB.bobinas.filter(b=>b.prod===p&&(b.fecha||'')>fReal).forEach(b=>{const u=b.uxp||0;if(!u)return;m[u]=m[u]||{uxp:u,w:0,cpp:cajasXPallet(p,u)||0};m[u].w+=b.uds||0;});
+    mix=Object.values(m).sort((a,b)=>b.uxp-a.uxp);
+  }else{
+    mix=prodByBox(p).map(x=>({uxp:x.uxp,w:x.uds,cpp:cajasXPallet(p,x.uxp)||0}));
+  }
   const totW=mix.reduce((s,x)=>s+x.w,0);
   if(!mix.length||totW<=0)return [];
   return mix.map(x=>{const frac=x.w/totW;const stU=sa*frac;const stC=x.uxp>0?stU/x.uxp:0;const cpp=x.cpp;return {uxp:x.uxp,frac,stU:Math.round(stU),stC:Math.round(stC),stP:cpp>0?Math.round(stC/cpp*10)/10:0,cpp};});
@@ -1618,14 +1626,14 @@ function srRepBox(p){ // tamaño de caja más representativo del producto
   sizes.forEach(s=>{const d=Math.abs(s-ux);if(d<bd){bd=d;best=s;}});
   return best;
 }
-function srRowHTML(p,uxp,cajas,cppOv){
+function srRowHTML(p,uxp,cajas,cppOv,prevCajas){
   const sizes=(CAT[p]&&CAT[p].cajas)||[];
   const opts=sizes.map(s=>`<option value="${s}" ${s===uxp?'selected':''}>${fmt(s)} u/caja</option>`).join('');
   const cppAuto=cajasXPallet(p,uxp); const cppVal=(cppOv!=null&&cppOv!==''&&+cppOv>0)?cppOv:((cppAuto!=null)?cppAuto:'');
   const cajVal=(cajas!=null&&cajas!=='')?cajas:'';
   return `<div class="sr-row" style="display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap">
     <select class="sr-box" data-prod="${p}" onchange="srBoxChange(this)" style="width:118px">${opts}</select>
-    <input type="number" class="sr-cajas" data-prod="${p}" min="0" step="1" value="${cajVal}" placeholder="cajas" oninput="srRecalc()" style="width:84px;text-align:right">
+    <input type="number" class="sr-cajas" data-prod="${p}" min="0" step="1" value="${cajVal}" placeholder="${(prevCajas!=null&&prevCajas!=='')?'antes '+prevCajas:'cajas'}" oninput="srRecalc()" style="width:84px;text-align:right">
     <span style="color:var(--text3);font-size:12px">cajas ÷</span>
     <input type="number" class="sr-cpp" data-prod="${p}" min="0" step="1" value="${cppVal}" title="cajas por pallet (para estimar pallets)" oninput="srRecalc()" style="width:54px;text-align:right">
     <span style="color:var(--text3);font-size:12px">c/pallet</span>
@@ -1638,11 +1646,13 @@ function openEstablecerStock(){
   PRODS.forEach(p=>{
     const sa=stockActual(p);
     const real=stockRealBoxes(p);
-    const rowsHtml = real ? real.map(b=>srRowHTML(p,+b.uxp||srRepBox(p),b.cajas,b.cpp)).join('') : srRowHTML(p,srRepBox(p));
+    const rowsHtml = real ? real.map(b=>srRowHTML(p,+b.uxp||srRepBox(p),'',b.cpp,b.cajas)).join('') : srRowHTML(p,srRepBox(p));
+    const rf=(DB.stockConfig[p]&&DB.stockConfig[p].real&&DB.stockConfig[p].real.fecha)||'';
+    const rInfo=real?`<span style="font-size:11px;color:var(--text3)">último recuento ${rf||'—'}: ${fmt(realUdsP(p))} u</span>`:'';
     html+=`<div class="sr-prod" data-prod="${p}" style="border:1px solid var(--border2);border-radius:10px;padding:10px 12px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
         <span class="prodtag ${CAT[p].fam==='Ensaladera'?'ens':''}">${p}</span>
-        <span style="font-size:12px;color:var(--text3)">Sistema: ${fmt(sa)} u</span>
+        <span style="font-size:12px;color:var(--text3)">Sistema: ${fmt(sa)} u</span>${rInfo}
         <span class="sr-tot" id="srtot-${p}" style="margin-left:auto;font-size:13px;font-weight:700;color:var(--text2)">Real: — u</span>
       </div>
       <div class="sr-rows" id="srrows-${p}">${rowsHtml}</div>
