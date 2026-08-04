@@ -836,9 +836,21 @@ async function loadFromCloud(force){
     const memN=DB.bobinas.length+DB.pedidos.length;
     if(cloudN===0&&memN>0&&!force){if(!confirm('La nube está vacía pero este equipo tiene '+memN+' registros. ¿Sobrescribir con lo vacío? (Cancelá para conservar lo de este equipo)')){setSync('ok','Se conservó lo local');return;}}
     DB.bobinasBorradas=r.bobinasBorradas||[];const _tIds=new Set(DB.bobinasBorradas.map(t=>t.id));
-    DB.bobinas=(r.bobinas||[]).filter(b=>!_tIds.has(b.id));DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};DB.ajustes=r.ajustes||[];DB.clientes=(r.clientes&&r.clientes.length)?r.clientes:seedClientes();DB.cronograma=r.cronograma||[];DB.operarios=r.operarios||[];
+    DB.bobinas=(r.bobinas||[]).filter(b=>!_tIds.has(b.id));
+    const _pend=pendGet().filter(b=>b&&b.id!=null&&!_tIds.has(b.id)&&!DB.bobinas.some(x=>x.id===b.id));
+    if(_pend.length){DB.bobinas=DB.bobinas.concat(_pend);prodDirty=true;}
+    DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};DB.ajustes=r.ajustes||[];DB.clientes=(r.clientes&&r.clientes.length)?r.clientes:seedClientes();DB.cronograma=r.cronograma||[];DB.operarios=r.operarios||[];
     dirty=false;setSync('ok','Sincronizado');refreshClienteDatalist();renderAll();
   }catch(e){LOAD_OK=false;setSync('err','Sin conexión — guardado bloqueado, recargá');const l=localStorage.getItem('wf_termo_local');if(l){const d=JSON.parse(l);Object.assign(DB,d);renderAll();}}
+}
+// ── pendientes: registros creados acá que todavía no están confirmados en la nube ──
+function pendGet(){try{return JSON.parse(localStorage.getItem('wf_termo_pend')||'[]');}catch(_){return [];}}
+function pendSet(a){try{localStorage.setItem('wf_termo_pend',JSON.stringify(a));}catch(_){}}
+function pendAdd(b){const a=pendGet();if(!a.some(x=>x.id===b.id))a.push(b);pendSet(a);}
+async function getLatest(){
+  const g=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});
+  if(!g.ok)throw new Error('no se pudo leer la nube (HTTP '+g.status+')');
+  return (await g.json()).record||{};
 }
 async function saveToCloud(){
   if(!LOAD_OK){setSync('err','Guardado bloqueado: la carga falló. Recargá.');toast('⚠ No se guardó: la carga inicial no se completó. Recargá la página antes de operar.','warn');return false;}
@@ -846,23 +858,42 @@ async function saveToCloud(){
   localStorage.setItem('wf_termo_local',JSON.stringify({bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,ajustes:DB.ajustes,clientes:DB.clientes,cronograma:DB.cronograma,operarios:DB.operarios,bobinasBorradas:DB.bobinasBorradas}));
   dirty=true;
   if(!CFG.apiKey||!CFG.binId){setSync('err','Sin bin configurado');toast('Configurá la sincronización primero','warn');return false;}
-  try{
-    let latest={};
-    try{const g=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});if(g.ok)latest=(await g.json()).record||{};}catch(_){}
+  const armar=(latest)=>{
     const pick=(k)=>latest[k]!==undefined?latest[k]:DB[k];
     const tombs=mergeTombs(DB.bobinasBorradas,latest.bobinasBorradas,[...bobinasDeleted]);
     const tombIds=new Set(tombs.map(t=>t.id));
     DB.bobinasBorradas=tombs;
-    const payload={
+    // SIEMPRE mergear la producción contra lo último de la nube (nunca pisar con lo que
+    // tenía esta ventana en memoria: es lo que hacía desaparecer cargas de la tablet).
+    let bobs=mergeById(DB.bobinas,latest.bobinas);
+    pendGet().forEach(b=>{if(b&&b.id!=null&&!tombIds.has(b.id)&&!bobs.some(x=>x.id===b.id))bobs.push(b);});
+    return {
       pedidos:DB.pedidos,clientes:DB.clientes,ajustes:DB.ajustes,cronograma:DB.cronograma,stockConfig:DB.stockConfig,
       pallets:pick('pallets'),cierres:pick('cierres'),operarios:pick('operarios'),bobinasBorradas:tombs,
-      bobinas:(prodDirty ? mergeById(DB.bobinas,latest.bobinas) : pick('bobinas')).filter(b=>!tombIds.has(b.id))
+      bobinas:bobs.filter(b=>!tombIds.has(b.id))
     };
+  };
+  const put=async(payload)=>{
     const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},body:JSON.stringify(payload)});
     if(!res.ok)throw new Error('HTTP '+res.status);
+  };
+  try{
+    // 1) leer lo último. Si esto falla NO escribimos: escribir a ciegas borra lo del otro equipo.
+    let latest=await getLatest();
+    let payload=armar(latest);
+    await put(payload);
+    // 2) verificar: si alguien escribió entre nuestro GET y nuestro PUT, re-mergear y reescribir.
+    try{
+      const check=await getLatest();
+      const ids=new Set((check.bobinas||[]).map(b=>b.id));
+      const faltan=payload.bobinas.filter(b=>!ids.has(b.id));
+      const nuevosDeOtro=(check.bobinas||[]).filter(b=>!payload.bobinas.some(x=>x.id===b.id));
+      if(faltan.length||nuevosDeOtro.length){payload=armar(check);await put(payload);}
+    }catch(_){}
     DB.bobinas=payload.bobinas;DB.pallets=payload.pallets;DB.cierres=payload.cierres;DB.operarios=payload.operarios;
+    const okIds=new Set(payload.bobinas.map(b=>b.id));pendSet(pendGet().filter(b=>!okIds.has(b.id)));
     prodDirty=false;bobinasDeleted.clear();dirty=false;setSync('ok','Guardado');renderAll();return true;
-  }catch(e){setSync('err','SIN GUARDAR en nube');toast('No se pudo guardar en la nube ('+e.message+'). Quedó en este equipo — reintentá con ↻ Actualizar o revisá la conexión.','err');renderAll();return false;}
+  }catch(e){setSync('err','SIN GUARDAR en nube');toast('No se pudo guardar en la nube ('+e.message+'). NO se pisó nada en la nube. Quedó en este equipo — reintentá con ↻ Actualizar o revisá la conexión.','err');renderAll();return false;}
 }
 
 // ════════ LOGIN ════════
@@ -1582,9 +1613,10 @@ async function guardarRegistro(){
   if(uds<=0)return toast('Ingresá las unidades producidas','warn');
   const ops=gv('reg-ops').split(',').map(x=>x.trim()).filter(Boolean);
   const reg={id:'man-'+Date.now()+'_'+Math.random().toString(36).slice(2,6),fecha,turno,hIni:HORARIO[turno]?HORARIO[turno].ini:'',hFin:HORARIO[turno]?HORARIO[turno].fin:'',operarios:ops,prod,fam:CAT[prod].fam,nbob:gv('reg-nbob').trim(),partida:gv('reg-partida').trim(),kg:parseInt(gv('reg-kg'))||0,metros:0,cini:0,cfin:0,cajas:uxp>0?Math.round(uds/uxp):0,uxp,uds,ts:new Date().toISOString(),obs:gv('reg-obs').trim(),origen:'manual-pc'};
-  DB.bobinas.push(reg);prodDirty=true;
+  DB.bobinas.push(reg);pendAdd(reg);prodDirty=true;
   const ok=await saveToCloud();
   if(ok){toast('Registro guardado ✓');limpiarRegistro();}
+  else toast('⚠ Quedó pendiente en este equipo. Se reintenta al recargar o al volver la conexión.','warn');
 }
 function limpiarRegistro(){['reg-turno','reg-prod','reg-uds','reg-uxp','reg-cajas','reg-nbob','reg-partida','reg-kg','reg-ops','reg-obs'].forEach(id=>sv(id,''));regCajaOpts();}
 let editBobId=null;

@@ -479,7 +479,10 @@ async function loadFromCloud(){
     if(!res.ok)throw new Error('HTTP '+res.status);
     const r=(await res.json()).record||{};
     DB.bobinasBorradas=r.bobinasBorradas||[];const _tIds=new Set(DB.bobinasBorradas.map(t=>t.id));
-    DB.bobinas=(r.bobinas||[]).filter(b=>!_tIds.has(b.id));DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};
+    DB.bobinas=(r.bobinas||[]).filter(b=>!_tIds.has(b.id));
+    const _pend=pendGet().filter(b=>b&&b.id!=null&&!_tIds.has(b.id)&&!DB.bobinas.some(x=>x.id===b.id));
+    if(_pend.length){DB.bobinas=DB.bobinas.concat(_pend);setTimeout(()=>saveToCloud(false),800);}
+    DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};
     cloudExtra={ajustes:r.ajustes,clientes:r.clientes,cronograma:r.cronograma,pedidos:r.pedidos,stockConfig:r.stockConfig};
     DB.operarios=(r.operarios&&r.operarios.length)?r.operarios:DB.operarios;
     localStorage.setItem('wf_termo_operarios',JSON.stringify(DB.operarios));
@@ -487,34 +490,61 @@ async function loadFromCloud(){
     setSync('ok','Sincronizado');renderAll();
   }catch(e){setSync('err','Sin conexión');const l=localStorage.getItem('wf_termo_local');if(l){const d=JSON.parse(l);DB.bobinas=d.bobinas||[];DB.pallets=d.pallets||[];DB.cierres=d.cierres||[];DB.pedidos=d.pedidos||[];DB.stockConfig=d.stockConfig||{};renderAll();}}
 }
+// ── pendientes: bobinas cargadas acá que todavía no están confirmadas en la nube ──
+function pendGet(){try{return JSON.parse(localStorage.getItem('wf_termo_pend')||'[]');}catch(_){return [];}}
+function pendSet(a){try{localStorage.setItem('wf_termo_pend',JSON.stringify(a));}catch(_){}}
+function pendAdd(b){const a=pendGet();if(!a.some(x=>x.id===b.id))a.push(b);pendSet(a);}
+function pendBadge(){const n=pendGet().length;if(n)setSync('err',n+' registro(s) sin subir');}
+async function getLatest(){
+  const g=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});
+  if(!g.ok)throw new Error('no se pudo leer la nube (HTTP '+g.status+')');
+  return (await g.json()).record||{};
+}
 async function saveToCloud(isNew){
   setSync('loading','Guardando...');
   const mine={bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,operarios:DB.operarios};
   localStorage.setItem('wf_termo_local',JSON.stringify(Object.assign({pedidos:DB.pedidos,stockConfig:DB.stockConfig},mine)));
   localStorage.setItem('wf_termo_operarios',JSON.stringify(DB.operarios));
   try{
-    let res;
     if(isNew||!CFG.binId){
-      res=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Name':'winflex-termoformado','X-Bin-Private':'true','X-Bin-Versioning':'true'},body:JSON.stringify(mine)});
+      const res=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Name':'winflex-termoformado','X-Bin-Private':'true','X-Bin-Versioning':'true'},body:JSON.stringify(mine)});
       if(!res.ok)throw new Error('HTTP '+res.status);CFG.binId=(await res.json()).metadata.id;saveCfgLocal();
-    }else{
-      // preservar lo que maneja sólo el portal (pedidos, clientes, ajustes, cronograma, stockConfig): releer lo último antes de pisar
-      let extra=cloudExtra; let latest=null;
-      try{const g=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId+'/latest',{headers:{'X-Master-Key':CFG.apiKey}});if(g.ok){latest=(await g.json()).record||{};extra={ajustes:latest.ajustes,clientes:latest.clientes,cronograma:latest.cronograma,pedidos:latest.pedidos,stockConfig:latest.stockConfig};cloudExtra=extra;}}catch(_){}
+      setSync('ok','Guardado');renderAll();return;
+    }
+    const armar=(latest)=>{
       const payload=Object.assign({},mine);
-      const tombs=mergeTombs(DB.bobinasBorradas,latest?latest.bobinasBorradas:null,[...bobinasDeleted]);
+      const tombs=mergeTombs(DB.bobinasBorradas,latest.bobinasBorradas,[...bobinasDeleted]);
       const tombIds=new Set(tombs.map(t=>t.id));
       DB.bobinasBorradas=tombs;payload.bobinasBorradas=tombs;
-      if(latest&&!_skipBobMerge){payload.bobinas=mergeById(DB.bobinas,latest.bobinas);}
-      payload.bobinas=(payload.bobinas||[]).filter(b=>!tombIds.has(b.id));
-      _skipBobMerge=false;
-      if(extra){['ajustes','clientes','cronograma','pedidos','stockConfig'].forEach(k=>{if(extra[k]!==undefined)payload[k]=extra[k];});}
-      res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},body:JSON.stringify(payload)});
+      let bobs=_skipBobMerge?DB.bobinas.slice():mergeById(DB.bobinas,latest.bobinas);
+      if(!_skipBobMerge)pendGet().forEach(b=>{if(b&&b.id!=null&&!tombIds.has(b.id)&&!bobs.some(x=>x.id===b.id))bobs.push(b);});
+      payload.bobinas=bobs.filter(b=>!tombIds.has(b.id));
+      // lo que maneja sólo el portal: se preserva tal cual está en la nube
+      ['ajustes','clientes','cronograma','pedidos','stockConfig'].forEach(k=>{if(latest[k]!==undefined)payload[k]=latest[k];});
+      return payload;
+    };
+    const put=async(payload)=>{
+      const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},body:JSON.stringify(payload)});
       if(!res.ok)throw new Error('HTTP '+res.status);
-      DB.bobinas=payload.bobinas;bobinasDeleted.clear();
-    }
+    };
+    // 1) leer lo último. Si falla NO escribimos: escribir a ciegas borraba lo cargado desde el panel.
+    let latest=await getLatest();
+    cloudExtra={ajustes:latest.ajustes,clientes:latest.clientes,cronograma:latest.cronograma,pedidos:latest.pedidos,stockConfig:latest.stockConfig};
+    let payload=armar(latest);
+    await put(payload);
+    // 2) verificar que nadie escribió en el medio; si pasó, re-mergear y reescribir.
+    try{
+      const check=await getLatest();
+      const ids=new Set((check.bobinas||[]).map(b=>b.id));
+      const faltan=payload.bobinas.filter(b=>!ids.has(b.id));
+      const nuevosDeOtro=(check.bobinas||[]).filter(b=>!payload.bobinas.some(x=>x.id===b.id));
+      if(faltan.length||nuevosDeOtro.length){_skipBobMerge=false;payload=armar(check);await put(payload);}
+    }catch(_){}
+    _skipBobMerge=false;
+    DB.bobinas=payload.bobinas;bobinasDeleted.clear();
+    const okIds=new Set(payload.bobinas.map(b=>b.id));pendSet(pendGet().filter(b=>!okIds.has(b.id)));
     setSync('ok','Guardado');renderAll();
-  }catch(e){setSync('err','Error al guardar');toast('Guardado local. Revisá conexión.','warn');}
+  }catch(e){setSync('err','SIN SUBIR — se reintenta');toast('No se pudo subir ('+e.message+'). Quedó guardado en la tablet, no se perdió. Revisá la conexión.','warn');pendBadge();renderAll();}
 }
 
 // ════════ LOGIN ════════
@@ -623,7 +653,8 @@ async function guardarBobina(){
   if(uds<=0)return toast('Cargá el contador o las cajas','warn');
   const fecha=gv('f-fecha');
   const hora=gv('f-hora')||hhmmNow();
-  DB.bobinas.push({id:Date.now()+'_'+Math.random().toString(36).slice(2,6),fecha,hora,turno:sel.turno,hIni:HORARIO[sel.turno].ini,hFin:HORARIO[sel.turno].fin,encargado:sel.encargado||'',operarios:[...sel.ops],prod:sel.prod,fam:CAT[sel.prod].fam,nbob:gv('f-nbob'),partida:gv('f-partida'),kg:parseFloat(gv('f-kg'))||0,metros:parseFloat(gv('f-metros'))||0,cini:parseInt(gv('f-cini'))||0,cfin:parseInt(gv('f-cfin'))||0,cajas,uxp,uds,ts:new Date().toLocaleTimeString('es-AR'),obs:gv('f-obs')});
+  const _reg={id:Date.now()+'_'+Math.random().toString(36).slice(2,6),fecha,hora,turno:sel.turno,hIni:HORARIO[sel.turno].ini,hFin:HORARIO[sel.turno].fin,encargado:sel.encargado||'',operarios:[...sel.ops],prod:sel.prod,fam:CAT[sel.prod].fam,nbob:gv('f-nbob'),partida:gv('f-partida'),kg:parseFloat(gv('f-kg'))||0,metros:parseFloat(gv('f-metros'))||0,cini:parseInt(gv('f-cini'))||0,cfin:parseInt(gv('f-cfin'))||0,cajas,uxp,uds,ts:new Date().toLocaleTimeString('es-AR'),obs:gv('f-obs')};
+  DB.bobinas.push(_reg);pendAdd(_reg);
   await saveToCloud(false);
   ['f-nbob','f-partida','f-kg','f-metros','f-cini','f-cfin','f-cajas','f-uds','f-obs'].forEach(id=>sv(id,''));
   sv('f-hora',hhmmNow());
