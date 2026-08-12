@@ -495,7 +495,7 @@ tr.cli-row.open{background:var(--surf2)}
     <div class="page" id="pg-stock">
       <div class="page-head"><div><div class="page-title">Stock y pallets</div><div class="page-sub">Lo que hay disponible para entregar, en unidades, cajas y pallets</div></div><div class="head-act"><div class="seg fam-seg-ctl"><button data-f="Todos" class="on" onclick="setFam('Todos')">Todos</button><button data-f="Clamshell" onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera" onclick="setFam('Ensaladera')">Ensaladera</button></div><button class="btn btn-xls btn-sm" onclick="exportExcel('stock')">⬇ Excel</button><button class="btn btn-greend btn-sm" onclick="openEstablecerStock()">📋 Establecer stock real</button><button class="btn btn-outline btn-sm" onclick="openAjuste()">🔧 Ajuste de inventario</button><button class="btn btn-outline btn-sm" onclick="openStock()">✏️ Stock inicial</button></div></div>
       <div class="kpis" id="stock-kpis" style="grid-template-columns:repeat(3,1fr)"></div>
-      <div class="card stock-card"><div class="card-head"><div class="card-title" style="margin:0">📦 Stock disponible</div><button class="btn btn-outline btn-sm" id="stk-toggle" onclick="toggleStockMov()">Ver todos</button></div><div class="card-note"><b>En planta</b> = todo lo que hay físicamente. <b>Disponible</b> = lo que queda libre para vender, después de descontar lo comprometido en pedidos (En planta − En pedido). Cajas y pallets son aproximados: se calculan a partir de las unidades en planta y la mezcla de formatos. Tocá una fila con ▸ para ver el desglose por tipo de caja.</div><div class="tbl-wrap"><table class="tbl-soft stk-table"><thead><tr><th>Producto</th><th class="num">En planta (u)</th><th class="num">Cajas</th><th class="num">Pallets</th><th class="num">En pedido</th><th class="num">Disponible (u)</th></tr></thead><tbody id="stock-tbody"></tbody></table></div></div>
+      <div class="card stock-card"><div class="card-head"><div class="card-title" style="margin:0">📦 Stock disponible</div><button class="btn btn-outline btn-sm" id="stk-toggle" onclick="toggleStockMov()">Ver todos</button></div><div class="card-note"><b>En planta</b> = todo lo que hay físicamente. <b>Disponible</b> = lo que queda libre para vender, después de descontar lo comprometido en pedidos (En planta − En pedido). Cada tipo de caja lleva su propio saldo: parte del último recuento y se le suma la producción y se le restan las entregas <b>de ese formato</b>. Tocá una fila con ▸ para ver el desglose.</div><div class="tbl-wrap"><table class="tbl-soft stk-table"><thead><tr><th>Producto</th><th class="num">En planta (u)</th><th class="num">Cajas</th><th class="num">Pallets</th><th class="num">En pedido</th><th class="num">Disponible (u)</th></tr></thead><tbody id="stock-tbody"></tbody></table></div></div>
       <div class="card stock-card"><div class="card-title">🔄 Producción y ventas</div><div class="card-note">De dónde sale el stock: lo que entró, se produjo, se vendió y los ajustes manuales.</div><div class="tbl-wrap"><table class="tbl-soft"><thead><tr><th>Producto</th><th class="num">Inicial</th><th class="num">Producido</th><th class="num">Vendido</th><th class="num">Ajustes</th></tr></thead><tbody id="mov-tbody"></tbody></table></div></div>
       <div class="card" id="ajustes-card"><div class="card-title">🔧 Historial de ajustes de inventario</div><div id="ajustes-list"></div></div>
       <div class="card">
@@ -740,8 +740,9 @@ tr.cli-row.open{background:var(--surf2)}
 <div class="modal-ov" id="modal-ajuste">
   <div class="modal"><h3>Ajuste de inventario</h3>
     <p style="font-size:13px;color:var(--text2);margin:0 0 14px">Sumá o restá unidades de stock por una causa puntual (recuento, rotura, devolución, etc.). Queda registrado en el historial.</p>
-    <div class="frow"><div class="field"><label>Producto</label><select id="aj-prod"></select></div><div class="field"><label>Tipo</label><select id="aj-tipo"><option value="alta">➕ Alta (sumar)</option><option value="baja">➖ Baja (restar)</option></select></div></div>
-    <div class="frow"><div class="field"><label>Cantidad (unidades)</label><input type="number" id="aj-uds" placeholder="0" min="0"></div><div class="field"><label>Motivo</label><input type="text" id="aj-motivo" placeholder="Recuento físico, rotura…"></div></div>
+    <div class="frow"><div class="field"><label>Producto</label><select id="aj-prod" onchange="ajCajaOpts()"></select></div><div class="field"><label>Tipo</label><select id="aj-tipo"><option value="alta">➕ Alta (sumar)</option><option value="baja">➖ Baja (restar)</option></select></div></div>
+    <div class="frow"><div class="field"><label>Tipo de caja</label><select id="aj-uxp"></select></div><div class="field"><label>Cantidad (unidades)</label><input type="number" id="aj-uds" placeholder="0" min="0"></div></div>
+    <div class="frow"><div class="field"><label>Motivo</label><input type="text" id="aj-motivo" placeholder="Recuento físico, rotura…"></div></div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-ajuste')">Cancelar</button><button class="btn btn-green" onclick="confirmarAjuste()">Guardar ajuste</button></div>
   </div>
 </div>
@@ -1010,23 +1011,61 @@ function stockRealBoxes(p){const c=DB.stockConfig[p];return (c&&c.real&&Array.is
 function realPalletsP(p){const r=stockRealBoxes(p);if(!r)return 0;return Math.round(r.reduce((s,x)=>{const cpp=(+x.cpp)||cajasXPallet(p,+x.uxp)||0;return s+(cpp>0?(+x.cajas||0)/cpp:0);},0)*10)/10;}
 function realUdsP(p){const r=stockRealBoxes(p);if(!r)return 0;return r.reduce((s,x)=>s+(+x.cajas||0)*(+x.uxp||0),0);}
 function palletsTotalP(p){return palletsProd(p)+realPalletsP(p);}
+// ── Saldo por tipo de caja: cada formato lleva su propia cuenta (NO se reparte el total) ──
+function boxOfPed(x){return (+x.caja)||0;}
+// Producción acumulada por formato (opcionalmente hasta una fecha inclusive)
+function prodByBoxMap(p,upto){const m={};DB.bobinas.filter(b=>b.prod===p&&(!upto||((b.fecha||'')<=upto))).forEach(b=>{const u=+b.uxp||0;if(!u)return;m[u]=(m[u]||0)+(b.uds||0);});return m;}
+// Entregas acumuladas por formato (opcionalmente hasta una fecha inclusive)
+function vendByBoxMap(p,upto){
+  const m={};
+  DB.pedidos.filter(x=>x.prod===p).forEach(x=>{
+    const u=boxOfPed(x)||presFor(p);if(!u)return;
+    let ent;
+    if(x.estado==='Cancelado')ent=0;
+    else if(x.estado==='Entregado'&&!(x.entregas&&x.entregas.length))ent=(!upto||((x.fecha||'')<=upto))?(x.uds||0):0;
+    else ent=Math.min((x.entregas||[]).filter(e=>!upto||((e.fecha||'')<=upto)).reduce((s,e)=>s+(e.uds||0),0),x.uds||0);
+    if(ent)m[u]=(m[u]||0)+ent;
+  });
+  return m;
+}
+// Ajustes manuales que sí tienen formato cargado
+function ajustesByBoxMap(p){const m={};(DB.ajustes||[]).filter(a=>a.prod===p&&!(a.motivo||'').startsWith('Establecer stock real')&&+a.uxp).forEach(a=>{const u=+a.uxp;m[u]=(m[u]||0)+(a.cantidad||0);});return m;}
 function stockByBox(p){
   const sa=stockActual(p);
+  const cfgReal=(DB.stockConfig[p]||{}).real;
   const real=stockRealBoxes(p);
-  let mix;
+  const m={};
+  const ensure=u=>{if(!m[u])m[u]={uxp:+u,uds:0,cpp:cajasXPallet(p,+u)||0};return m[u];};
   if(real){
-    // base: lo contado en planta + la producción posterior al recuento, por tipo de caja
-    const fReal=((DB.stockConfig[p]||{}).real||{}).fecha||'';
-    const m={};
-    real.forEach(x=>{const u=+x.uxp||0;if(!u)return;m[u]=m[u]||{uxp:u,w:0,cpp:(+x.cpp)||cajasXPallet(p,u)||0};m[u].w+=(+x.cajas||0)*u;});
-    DB.bobinas.filter(b=>b.prod===p&&(b.fecha||'')>fReal).forEach(b=>{const u=b.uxp||0;if(!u)return;m[u]=m[u]||{uxp:u,w:0,cpp:cajasXPallet(p,u)||0};m[u].w+=b.uds||0;});
-    mix=Object.values(m).sort((a,b)=>b.uxp-a.uxp);
+    // 1) lo contado en planta, formato por formato
+    real.forEach(x=>{const u=+x.uxp||0;if(!u)return;const e=ensure(u);e.uds+=(+x.cajas||0)*u;if(+x.cpp>0)e.cpp=+x.cpp;});
+    // 2) movimientos POSTERIORES al recuento, cada uno en SU formato
+    const fReal=(cfgReal&&cfgReal.fecha)||'';
+    const pSnap=(cfgReal&&cfgReal.prodSnap)||prodByBoxMap(p,fReal); // fallback p/ recuentos viejos sin snapshot
+    const vSnap=(cfgReal&&cfgReal.vendSnap)||vendByBoxMap(p,fReal);
+    const pNow=prodByBoxMap(p),vNow=vendByBoxMap(p);
+    Object.keys(pNow).forEach(u=>{const d=pNow[u]-(+pSnap[u]||0);if(d)ensure(u).uds+=d;});
+    Object.keys(vNow).forEach(u=>{const d=vNow[u]-(+vSnap[u]||0);if(d)ensure(u).uds-=d;});
   }else{
-    mix=prodByBox(p).map(x=>({uxp:x.uxp,w:x.uds,cpp:cajasXPallet(p,x.uxp)||0}));
+    const pNow=prodByBoxMap(p),vNow=vendByBoxMap(p);
+    Object.keys(pNow).forEach(u=>{ensure(u).uds+=pNow[u];});
+    Object.keys(vNow).forEach(u=>{ensure(u).uds-=vNow[u];});
   }
-  const totW=mix.reduce((s,x)=>s+x.w,0);
-  if(!mix.length||totW<=0)return [];
-  return mix.map(x=>{const frac=x.w/totW;const stU=sa*frac;const stC=x.uxp>0?stU/x.uxp:0;const cpp=x.cpp;return {uxp:x.uxp,frac,stU:Math.round(stU),stC:Math.round(stC),stP:cpp>0?Math.round(stC/cpp*10)/10:0,cpp};});
+  // 3) ajustes manuales con formato
+  const aj=ajustesByBoxMap(p);Object.keys(aj).forEach(u=>{ensure(u).uds+=aj[u];});
+  let arr=Object.values(m).filter(x=>x.uxp>0);
+  if(!arr.length)return [];
+  // 4) residuo sin formato (stock inicial o ajustes viejos): se reparte para que el detalle cierre con el total
+  const asignado=arr.reduce((s,x)=>s+x.uds,0);
+  const resid=sa-asignado;
+  if(resid!==0){
+    const pos=arr.filter(x=>x.uds>0),base=pos.length?pos:arr;
+    const tot=base.reduce((s,x)=>s+Math.abs(x.uds),0);
+    if(tot>0)base.forEach(x=>{x.uds+=resid*(Math.abs(x.uds)/tot);});
+    else arr[0].uds+=resid;
+  }
+  arr.sort((a,b)=>b.uxp-a.uxp);
+  return arr.map(x=>{const stU=x.uds;const stC=x.uxp>0?stU/x.uxp:0;const cpp=x.cpp;return {uxp:x.uxp,frac:sa?stU/sa:0,stU:Math.round(stU),stC:Math.round(stC),stP:cpp>0?Math.round(stC/cpp*10)/10:0,cpp};});
 }
 function eficProm(p){const g={};DB.bobinas.filter(b=>b.prod===p).forEach(b=>{const k=b.fecha+'|'+b.turno;g[k]=(g[k]||0)+(b.uds||0);});const vs=[];Object.keys(g).forEach(k=>{const t=k.split('|')[1];const o=objetivoTurno(p,t);if(o>0)vs.push(g[k]/o*100);});return vs.length?Math.round(vs.reduce((a,v)=>a+v,0)/vs.length):null;}
 function turnosProd(p){const s=new Set();DB.bobinas.filter(b=>b.prod===p).forEach(b=>s.add(b.fecha+'|'+b.turno));return s.size;}
@@ -1134,7 +1173,7 @@ let stockSoloMov=true;
 function boxDetail(p,boxes){
   const tU=boxes.reduce((s,x)=>s+x.stU,0),tC=boxes.reduce((s,x)=>s+x.stC,0),tP=Math.round(boxes.reduce((s,x)=>s+x.stP,0)*10)/10;
   const ttl=`Stock de <b>${p}</b> en planta, repartido por tipo de caja`;
-  const note='Repartido según la mezcla de formatos, proporcional a las unidades en planta.&nbsp;&nbsp;·&nbsp;&nbsp;Cajas = unidades ÷ u/caja&nbsp;&nbsp;·&nbsp;&nbsp;Pallets = cajas ÷ cajas por pallet';
+  const note='Saldo por formato = recuento + producción − entregas de ese formato.&nbsp;&nbsp;·&nbsp;&nbsp;Cajas = unidades ÷ u/caja&nbsp;&nbsp;·&nbsp;&nbsp;Pallets = cajas ÷ cajas por pallet';
   return `<div class="boxwrap"><div class="boxttl">${ttl}</div><table class="boxtbl"><thead><tr><th>Tamaño de caja</th><th>Unidades</th><th>Cajas</th><th>Pallets</th></tr></thead><tbody>${boxes.map(x=>`<tr><td class="bx-fmt"><b>${fmt(x.uxp)}</b> u/caja${x.cpp?`<span>${x.cpp} cajas por pallet</span>`:'<span>—</span>'}</td><td class="bx-n">${fmt(x.stU)}</td><td class="bx-n">${fmt(x.stC)}</td><td class="bx-n">${x.stP?x.stP:'—'}</td></tr>`).join('')}<tr class="bx-tot"><td>Total en planta</td><td class="bx-n">${fmt(tU)}</td><td class="bx-n">${fmt(tC)}</td><td class="bx-n">${tP}</td></tr></tbody></table><div class="boxnote">${note}</div></div>`;
 }
 function toggleStockRow(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('stk-detail'))d.style.display=op?'table-row':'none';}
@@ -1649,8 +1688,9 @@ async function delBobina(id){
 function delBobinaFromModal(){const id=editBobId;closeModal('modal-editprod');if(id)delBobina(id);}
 
 // ════════ AJUSTE DE STOCK ════════
-function openAjuste(){document.getElementById('aj-prod').innerHTML='<option value="">— Seleccionar —</option>'+PRODS.map(p=>`<option>${p}</option>`).join('');sv('aj-prod','');sv('aj-tipo','alta');sv('aj-uds','');sv('aj-motivo','');document.getElementById('modal-ajuste').classList.add('show');}
-async function confirmarAjuste(){const prod=gv('aj-prod'),tipo=gv('aj-tipo'),uds=parseInt(gv('aj-uds'))||0,motivo=gv('aj-motivo').trim();if(!prod)return toast('Elegí un producto','warn');if(uds<=0)return toast('Ingresá una cantidad mayor a 0','warn');const cantidad=tipo==='baja'?-uds:uds;if(!DB.ajustes)DB.ajustes=[];DB.ajustes.push({id:String(Date.now())+'_'+Math.random().toString(36).slice(2,5),fecha:new Date().toISOString().split('T')[0],prod,cantidad,motivo:motivo||(tipo==='baja'?'Baja de inventario':'Alta de inventario')});closeModal('modal-ajuste');const ok=await saveToCloud();if(ok)toast('Ajuste de inventario guardado ✓');}
+function ajCajaOpts(){const p=gv('aj-prod'),sel=document.getElementById('aj-uxp');if(!sel)return;const cajas=(CAT[p]&&CAT[p].cajas)?CAT[p].cajas:[];sel.innerHTML='<option value="">— Sin formato —</option>'+cajas.map(c=>`<option value="${c}">${c} u/caja</option>`).join('');}
+function openAjuste(){document.getElementById('aj-prod').innerHTML='<option value="">— Seleccionar —</option>'+PRODS.map(p=>`<option>${p}</option>`).join('');sv('aj-prod','');ajCajaOpts();sv('aj-tipo','alta');sv('aj-uds','');sv('aj-motivo','');document.getElementById('modal-ajuste').classList.add('show');}
+async function confirmarAjuste(){const prod=gv('aj-prod'),tipo=gv('aj-tipo'),uds=parseInt(gv('aj-uds'))||0,motivo=gv('aj-motivo').trim(),uxp=parseInt(gv('aj-uxp'))||0;if(!prod)return toast('Elegí un producto','warn');if(uds<=0)return toast('Ingresá una cantidad mayor a 0','warn');const cantidad=tipo==='baja'?-uds:uds;if(!DB.ajustes)DB.ajustes=[];DB.ajustes.push({id:String(Date.now())+'_'+Math.random().toString(36).slice(2,5),fecha:new Date().toISOString().split('T')[0],prod,uxp,cantidad,motivo:motivo||(tipo==='baja'?'Baja de inventario':'Alta de inventario')});closeModal('modal-ajuste');const ok=await saveToCloud();if(ok)toast('Ajuste de inventario guardado ✓');}
 async function delAjuste(id){if(!confirm('¿Eliminar este ajuste de inventario?'))return;DB.ajustes=(DB.ajustes||[]).filter(a=>String(a.id)!==String(id));const ok=await saveToCloud();if(ok)toast('Ajuste eliminado');}
 // ── Establecer stock real: carga por tipo de caja + pallets ──
 function srRepBox(p){ // tamaño de caja más representativo del producto
@@ -1743,7 +1783,7 @@ async function confirmarStockReal(){
       boxesArr.push({uxp,cajas,cpp});
     });
     if(!hasInput)return;
-    DB.stockConfig[p]={...(DB.stockConfig[p]||{}),real:{fecha:new Date().toISOString().split('T')[0],boxes:boxesArr}};
+    DB.stockConfig[p]={...(DB.stockConfig[p]||{}),real:{fecha:new Date().toISOString().split('T')[0],boxes:boxesArr,prodSnap:prodByBoxMap(p),vendSnap:vendByBoxMap(p)}};
     const otros=(DB.ajustes||[]).filter(a=>a.prod===p&&!(a.motivo||'').startsWith('Establecer stock real')).reduce((s,a)=>s+(a.cantidad||0),0);
     const base=(stockCfg(p).ini||0)+producido(p)-vendido(p)-(stockCfg(p).rech||0)+otros;
     const dif=real-base;
