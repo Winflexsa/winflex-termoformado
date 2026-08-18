@@ -875,7 +875,7 @@ async function saveToCloud(){
     };
   };
   const put=async(payload)=>{
-    const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},body:JSON.stringify(payload)});
+    const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'false'},body:JSON.stringify(payload)});
     if(!res.ok)throw new Error('HTTP '+res.status);
   };
   try{

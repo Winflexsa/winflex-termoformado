@@ -507,7 +507,7 @@ async function saveToCloud(isNew){
   localStorage.setItem('wf_termo_operarios',JSON.stringify(DB.operarios));
   try{
     if(isNew||!CFG.binId){
-      const res=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Name':'winflex-termoformado','X-Bin-Private':'true','X-Bin-Versioning':'true'},body:JSON.stringify(mine)});
+      const res=await fetch('https://api.jsonbin.io/v3/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Name':'winflex-termoformado','X-Bin-Private':'true','X-Bin-Versioning':'false'},body:JSON.stringify(mine)});
       if(!res.ok)throw new Error('HTTP '+res.status);CFG.binId=(await res.json()).metadata.id;saveCfgLocal();
       setSync('ok','Guardado');renderAll();return;
     }
@@ -524,7 +524,7 @@ async function saveToCloud(isNew){
       return payload;
     };
     const put=async(payload)=>{
-      const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},body:JSON.stringify(payload)});
+      const res=await fetch('https://api.jsonbin.io/v3/b/'+CFG.binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'false'},body:JSON.stringify(payload)});
       if(!res.ok)throw new Error('HTTP '+res.status);
     };
     // 1) leer lo último. Si falla NO escribimos: escribir a ciegas borraba lo cargado desde el panel.
