@@ -1070,6 +1070,23 @@ function stockByBox(p){
 function sinFmtProd(p){return DB.bobinas.filter(b=>b.prod===p&&!(+b.uxp)).reduce((s,b)=>s+(b.uds||0),0);}
 // Pedidos sin formato de caja cargado (la otra causa: se les imputa un formato que va cambiando)
 function sinFmtPed(p){return DB.pedidos.filter(x=>x.prod===p&&!(+x.caja)).length;}
+// ── Orden y hora de carga de cada bobina ──
+// El id se genera con Date.now() (tablet: "1755...", panel: "man-1755..."), asi que
+// sirve como orden real de carga. Fallback: fecha + hora declarada.
+function ordCarga(b){
+  const m=String(b.id||'').match(/^(?:[a-z]+-)?(\d{13})/);
+  if(m)return +m[1];
+  const h=String(b.hora||'').match(/^(\d{1,2}):(\d{2})/);
+  if(h&&b.fecha)return Date.parse(b.fecha+'T'+String(h[1]).padStart(2,'0')+':'+h[2])||0;
+  return b.fecha?(Date.parse(b.fecha+'T00:00')||0):0;
+}
+function horaCarga(b){
+  if(b.hora)return String(b.hora).slice(0,5);
+  const m=String(b.id||'').match(/^(?:[a-z]+-)?(\d{13})/);
+  if(m)return new Date(+m[1]).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
+  if(b.ts&&/^\d{1,2}:\d{2}/.test(b.ts))return String(b.ts).slice(0,5);
+  return '—';
+}
 function eficProm(p){const g={};DB.bobinas.filter(b=>b.prod===p).forEach(b=>{const k=b.fecha+'|'+b.turno;g[k]=(g[k]||0)+(b.uds||0);});const vs=[];Object.keys(g).forEach(k=>{const t=k.split('|')[1];const o=objetivoTurno(p,t);if(o>0)vs.push(g[k]/o*100);});return vs.length?Math.round(vs.reduce((a,v)=>a+v,0)/vs.length):null;}
 function turnosProd(p){const s=new Set();DB.bobinas.filter(b=>b.prod===p).forEach(b=>s.add(b.fecha+'|'+b.turno));return s.size;}
 
@@ -1134,8 +1151,8 @@ function renderDashboard(){
   document.getElementById('dash-com-next').innerHTML=nextE.length?`<div class="nt" style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px">⏱ Próximas entregas</div>`+nextE.map(p=>{const u=pedUrgency(p);return `<div class="nx-row"><div><b>${p.cliente||'—'}</b> · <span class="prodtag ${CAT[p.prod]?.fam==='Ensaladera'?'ens':''}">${p.prod}</span> <span class="mono" style="color:var(--text2)">${fmt(pedPendiente(p))}u</span></div><div style="white-space:nowrap">${(p.entrega||'').slice(5)} ${u?`<span class="urg ${u.cls}">${u.txt}</span>`:''}</div></div>`;}).join(''):'<div class="empty">No hay entregas pendientes</div>';
   // ultimas
   const gg={};bobs.forEach(b=>{const k=b.fecha+'|'+b.turno+'|'+b.prod;gg[k]=(gg[k]||0)+(b.uds||0);});
-  const ult=bobs.slice().sort((a,b)=>(b.fecha+(b.ts||'')).localeCompare(a.fecha+(a.ts||''))).slice(0,8);
-  document.getElementById('dash-ultimas').innerHTML=ult.length?ult.map(b=>{const o=objetivoTurno(b.prod,b.turno);const e=o>0?Math.round(gg[b.fecha+'|'+b.turno+'|'+b.prod]/o*100):null;return `<tr><td>${b.fecha.slice(5)}</td><td><span class="turno-pill">${b.turno}</span></td><td><span class="prodtag ${CAT[b.prod]?.fam==='Ensaladera'?'ens':''}">${b.prod}</span></td><td class="mono">${b.nbob||'—'}</td><td class="mono">${fmt(b.cajas)}</td><td class="mono">${fmt(b.uds)}</td><td>${e!==null?eTag(e):'—'}</td></tr>`;}).join(''):'<tr><td colspan="7" class="empty">Sin registros</td></tr>';
+  const ult=bobs.slice().sort((a,b)=>ordCarga(b)-ordCarga(a)).slice(0,8);
+  document.getElementById('dash-ultimas').innerHTML=ult.length?ult.map(b=>{const o=objetivoTurno(b.prod,b.turno);const e=o>0?Math.round(gg[b.fecha+'|'+b.turno+'|'+b.prod]/o*100):null;return `<tr><td>${b.fecha.slice(5)} <span style="color:var(--text3);font-size:11px">${horaCarga(b)}</span></td><td><span class="turno-pill">${b.turno}</span></td><td><span class="prodtag ${CAT[b.prod]?.fam==='Ensaladera'?'ens':''}">${b.prod}</span></td><td class="mono">${b.nbob||'—'}</td><td class="mono">${fmt(b.cajas)}</td><td class="mono">${fmt(b.uds)}</td><td>${e!==null?eTag(e):'—'}</td></tr>`;}).join(''):'<tr><td colspan="7" class="empty">Sin registros</td></tr>';
 }
 
 function prodFiltered(){
@@ -1167,7 +1184,7 @@ function renderProduccion(){
     const eT={},totT={};[...byD[f].turnos].forEach(t=>{const tb=sub.filter(b=>b.turno===t);const prods=new Set(tb.map(b=>b.prod));let ot=0;prods.forEach(p=>ot+=objetivoTurno(p,t));const uds=tb.reduce((s,b)=>s+(b.uds||0),0);totT[t]={uds,cajas:tb.reduce((s,b)=>s+(b.cajas||0),0),kg:tb.reduce((s,b)=>s+(b.kg||0),0)};eT[t]=ot>0?Math.round(uds/ot*100):null;});byD[f].eficT=eT;byD[f].totT=totT;});
   const fechas=Object.keys(byD).sort((a,b)=>b.localeCompare(a));
   const TORD={M1:0,M2:1,N:2},tCls=t=>t==='N'?'t-noche':'t-dia',tNm=t=>t==='N'?'🌙 Noche':'☀️ Día';
-  const detTbl=f=>{const x=byD[f];const turnos=[...x.turnos].sort((a,b)=>(TORD[a]??9)-(TORD[b]??9));const blocks=turnos.map(t=>{const tb=bobs.filter(b=>b.fecha===f&&b.turno===t).sort((a,b)=>(a.prod+(a.nbob||'')).localeCompare(b.prod+(b.nbob||'')));const tt=(x.totT||{})[t]||{uds:0,cajas:0,kg:0};const ef=(x.eficT||{})[t];const head=`<tr class="turno-grp ${tCls(t)}"><td colspan="8"><div class="tg-head"><div class="tg-left"><span class="turno-pill">${t}</span><span class="tg-name">${tNm(t)} · ${HORAS[t]||'?'} h máq.</span></div><div class="tg-right"><span class="tg-stat"><b>${fmt(tt.cajas)}</b> cajas</span><span class="tg-stat"><b>${fmt(tt.uds)}</b> u</span><span class="tg-stat"><b>${fmt(tt.kg)}</b> kg</span><span class="tg-ef">Efic. turno ${ef!=null?eTag(ef):'<span style="color:var(--text3)">—</span>'}</span></div></div></td></tr>`;const rows=tb.map(b=>`<tr><td><span class="prodtag ${CAT[b.prod]?.fam==='Ensaladera'?'ens':''}">${b.prod}</span></td><td class="mono">${b.nbob||'—'}</td><td>${b.partida||'—'}</td><td class="mono">${fmt(b.kg)}</td><td class="mono">${fmt(b.cajas)}</td><td class="mono">${fmt(b.uds)}</td><td style="font-size:12px;white-space:normal">${(b.operarios||[]).join(', ')||'—'}</td><td class="acts" style="white-space:nowrap">${b.id?`<button class="linkact" onclick="editBobina('${b.id}')" title="Editar">✏️</button><button class="linkact del" onclick="delBobina('${b.id}')" title="Borrar">🗑</button>`:'<span style="color:var(--text3);font-size:11px">—</span>'}</td></tr>`).join('');return head+rows;}).join('');return `<div class="subwrap"><table class="subtbl"><thead><tr><th>Prod</th><th>N° Bob</th><th>Partida</th><th>Kg</th><th>Cajas</th><th>Unidades</th><th>Operarios</th><th>Acciones</th></tr></thead><tbody>${blocks}</tbody></table></div>`;};
+  const detTbl=f=>{const x=byD[f];const turnos=[...x.turnos].sort((a,b)=>(TORD[a]??9)-(TORD[b]??9));const blocks=turnos.map(t=>{const tb=bobs.filter(b=>b.fecha===f&&b.turno===t).sort((a,b)=>ordCarga(a)-ordCarga(b));const tt=(x.totT||{})[t]||{uds:0,cajas:0,kg:0};const ef=(x.eficT||{})[t];const head=`<tr class="turno-grp ${tCls(t)}"><td colspan="9"><div class="tg-head"><div class="tg-left"><span class="turno-pill">${t}</span><span class="tg-name">${tNm(t)} · ${HORAS[t]||'?'} h máq.</span></div><div class="tg-right"><span class="tg-stat"><b>${fmt(tt.cajas)}</b> cajas</span><span class="tg-stat"><b>${fmt(tt.uds)}</b> u</span><span class="tg-stat"><b>${fmt(tt.kg)}</b> kg</span><span class="tg-ef">Efic. turno ${ef!=null?eTag(ef):'<span style="color:var(--text3)">—</span>'}</span></div></div></td></tr>`;const rows=tb.map(b=>`<tr><td class="mono" style="font-size:12px;color:var(--text2)">${horaCarga(b)}</td><td><span class="prodtag ${CAT[b.prod]?.fam==='Ensaladera'?'ens':''}">${b.prod}</span></td><td class="mono">${b.nbob||'—'}</td><td>${b.partida||'—'}</td><td class="mono">${fmt(b.kg)}</td><td class="mono">${fmt(b.cajas)}</td><td class="mono">${fmt(b.uds)}</td><td style="font-size:12px;white-space:normal">${(b.operarios||[]).join(', ')||'—'}</td><td class="acts" style="white-space:nowrap">${b.id?`<button class="linkact" onclick="editBobina('${b.id}')" title="Editar">✏️</button><button class="linkact del" onclick="delBobina('${b.id}')" title="Borrar">🗑</button>`:'<span style="color:var(--text3);font-size:11px">—</span>'}</td></tr>`).join('');return head+rows;}).join('');return `<div class="subwrap"><table class="subtbl"><thead><tr><th>Hora</th><th>Prod</th><th>N° Bob</th><th>Partida</th><th>Kg</th><th>Cajas</th><th>Unidades</th><th>Operarios</th><th>Acciones</th></tr></thead><tbody>${blocks}</tbody></table></div>`;};
   document.getElementById('prod-dias').innerHTML=fechas.length?fechas.map(f=>{const x=byD[f];const dd=new Date(f+'T00:00');const lbl=dd.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});return `<tr class="clickable dayrow" onclick="toggleDia(this)"><td><span class="chev">▸</span><b>${lbl}</b></td><td style="white-space:normal">${[...x.turnos].sort((a,b)=>(TORD[a]??9)-(TORD[b]??9)).map(t=>{const e=(x.eficT||{})[t];return `<span class="turno-cell"><span class="turno-pill">${t}</span>${e!=null?`<span class="te" style="color:${eColor(e)}">${e}%</span>`:''}</span>`;}).join('')}</td><td style="font-size:12px;color:var(--text2);white-space:normal">${[...x.prods].join(', ')}</td><td class="mono">${fmt(x.cajas)}</td><td class="mono">${fmt(x.uds)}</td><td class="mono">${fmt(x.kg)}</td><td>${x.efic!==null?eTag(x.efic):'—'}</td></tr><tr class="day-detail" style="display:none"><td colspan="7">${detTbl(f)}</td></tr>`;}).join(''):'<tr><td colspan="7" class="empty">Sin producción para el filtro</td></tr>';
 }
 function toggleDia(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('day-detail'))d.style.display=op?'table-row':'none';}
@@ -1599,10 +1616,10 @@ async function exportExcel(kind){
       wfSheet(wb,'Por día','Producción · Por día',sub,
         [{h:'Fecha',k:'f',w:14},{h:'Turnos',k:'t',w:14},{h:'Productos',k:'p',w:22},{h:'Cajas',k:'c',w:12,type:'num',total:true},{h:'Unidades',k:'u',w:13,type:'num',total:true},{h:'Kg',k:'kg',w:11,type:'num',total:true},{h:'Efic.',k:'e',w:10,type:'pct'}],
         fechas.map(f=>{const x=byD[f];return{f,t:[...x.turnos].join(' '),p:[...x.prods].join(', '),c:x.cajas,u:x.uds,kg:Math.round(x.kg),e:x.efic};}));
-      const det=bobs.slice().sort((a,b)=>(b.fecha+'').localeCompare(a.fecha+'')||(a.turno+'').localeCompare(b.turno+''));
+      const det=bobs.slice().sort((a,b)=>(b.fecha+'').localeCompare(a.fecha+'')||ordCarga(a)-ordCarga(b));
       wfSheet(wb,'Detalle bobinas','Producción · Detalle de bobinas',sub,
-        [{h:'Fecha',k:'f',w:12},{h:'Turno',k:'t',w:8},{h:'Producto',k:'p',w:12},{h:'N° Bob.',k:'nb',w:10},{h:'Partida',k:'pa',w:12},{h:'Kg',k:'kg',w:10,type:'num',total:true},{h:'Cajas',k:'c',w:10,type:'num',total:true},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Operarios',k:'op',w:22}],
-        det.map(b=>({f:b.fecha,t:b.turno,p:b.prod,nb:b.nbob||'',pa:b.partida||'',kg:b.kg||0,c:b.cajas||0,u:b.uds||0,op:(b.operarios||[]).join(', ')})));
+        [{h:'Fecha',k:'f',w:12},{h:'Hora',k:'ho',w:8},{h:'Turno',k:'t',w:8},{h:'Producto',k:'p',w:12},{h:'N° Bob.',k:'nb',w:10},{h:'Partida',k:'pa',w:12},{h:'Kg',k:'kg',w:10,type:'num',total:true},{h:'Cajas',k:'c',w:10,type:'num',total:true},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Operarios',k:'op',w:22}],
+        det.map(b=>({f:b.fecha,ho:horaCarga(b),t:b.turno,p:b.prod,nb:b.nbob||'',pa:b.partida||'',kg:b.kg||0,c:b.cajas||0,u:b.uds||0,op:(b.operarios||[]).join(', ')})));
     } else if(kind==='stock'){
       // Hoja 1 — Stock puro (sin producido/vendido/rechazado)
       const sprods=prods.filter(p=>stockActual(p)!==0||enPedido(p)>0);
@@ -1884,10 +1901,10 @@ async function exportExcelMes(y,mi){
     const prowsArr=prods.map(p=>{const pb=mb.filter(b=>b.prod===p);const u=pb.reduce((s,b)=>s+(b.uds||0),0),c=pb.reduce((s,b)=>s+(b.cajas||0),0),kg=pb.reduce((s,b)=>s+(b.kg||0),0);const d=new Set(pb.map(b=>b.fecha)).size;const g={};pb.forEach(b=>{const k=b.fecha+'|'+b.turno;g[k]=(g[k]||0)+(b.uds||0);});let su=0,so=0;Object.keys(g).forEach(k=>{const t=k.split('|')[1];const o=objetivoTurno(p,t);if(o>0){su+=g[k];so+=o;}});return {p,fa:CAT[p]?.fam||'',u,c,kg:Math.round(kg),d,e:so>0?Math.round(su/so*100):null};}).sort((a,b)=>b.u-a.u);
     wfSheet(wb,'Resumen '+mesNom,'Producción de '+mesNom+' '+y,sub,
       [{h:'Producto',k:'p',w:13},{h:'Familia',k:'fa',w:13},{h:'Unidades',k:'u',w:13,type:'num',total:true},{h:'Cajas',k:'c',w:11,type:'num',total:true},{h:'Kg',k:'kg',w:10,type:'num',total:true},{h:'Días',k:'d',w:8,type:'num'},{h:'Ef. operativa',k:'e',w:13,type:'pct'}],prowsArr);
-    const det=mb.slice().sort((a,b)=>(a.fecha+'').localeCompare(b.fecha+'')||(a.turno+'').localeCompare(b.turno+''));
+    const det=mb.slice().sort((a,b)=>(a.fecha+'').localeCompare(b.fecha+'')||ordCarga(a)-ordCarga(b));
     wfSheet(wb,'Detalle '+mesNom,'Detalle de bobinas · '+mesNom+' '+y,sub,
-      [{h:'Fecha',k:'f',w:12},{h:'Turno',k:'t',w:8},{h:'Producto',k:'p',w:12},{h:'N° Bob.',k:'nb',w:10},{h:'Partida',k:'pa',w:12},{h:'Kg',k:'kg',w:10,type:'num',total:true},{h:'Cajas',k:'c',w:10,type:'num',total:true},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Operarios',k:'op',w:22}],
-      det.map(b=>({f:b.fecha,t:b.turno,p:b.prod,nb:b.nbob||'',pa:b.partida||'',kg:b.kg||0,c:b.cajas||0,u:b.uds||0,op:(b.operarios||[]).join(', ')})));
+      [{h:'Fecha',k:'f',w:12},{h:'Hora',k:'ho',w:8},{h:'Turno',k:'t',w:8},{h:'Producto',k:'p',w:12},{h:'N° Bob.',k:'nb',w:10},{h:'Partida',k:'pa',w:12},{h:'Kg',k:'kg',w:10,type:'num',total:true},{h:'Cajas',k:'c',w:10,type:'num',total:true},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Operarios',k:'op',w:22}],
+      det.map(b=>({f:b.fecha,ho:horaCarga(b),t:b.turno,p:b.prod,nb:b.nbob||'',pa:b.partida||'',kg:b.kg||0,c:b.cajas||0,u:b.uds||0,op:(b.operarios||[]).join(', ')})));
     const mp=DB.pedidos.filter(p=>famOk(p.prod)&&p.fecha&&new Date(p.fecha+'T00:00').getFullYear()==y&&new Date(p.fecha+'T00:00').getMonth()===mi).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
     if(mp.length)wfSheet(wb,'Pedidos '+mesNom,'Pedidos de '+mesNom+' '+y,sub,
       [{h:'Fecha',k:'f',w:12},{h:'Cliente',k:'cl',w:24},{h:'Producto',k:'p',w:11},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Entregado',k:'ent',w:12,type:'num',total:true},{h:'Estado',k:'e',w:13,type:'estado'},{h:'Vendedor',k:'v',w:14}],
