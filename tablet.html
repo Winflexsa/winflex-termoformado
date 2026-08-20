@@ -384,9 +384,10 @@ const CAT={
 };
 function objetivoTurno(prod,turno){const c=CAT[prod];if(!c||!turno)return 0;return Math.round(c.bocas*c.golpes*60*HORAS[turno]*FACTOR);}
 const CAJAS_PALLET_ENS={
-  E900:{1000:24,300:36,440:30,100:72},
-  T900:{500:24,300:72,440:60,100:112},
-  E910:{1000:24,300:36,440:30,100:72},
+  E900:{500:24,440:30,300:36,100:72},
+  T900:{1000:24,440:60,300:72,100:112},
+  S900:{1000:24,440:60,300:72,100:112},
+  E910:{500:24,440:30,300:36,100:72},
 };
 function cajasXPallet(prod,uxp){
   const c=CAT[prod];if(!c)return null;

@@ -981,9 +981,10 @@ function ajustesProd(p){return (DB.ajustes||[]).filter(a=>a.prod===p).reduce((s,
 function stockActual(p){const c=stockCfg(p);return (c.ini||0)+producido(p)-vendido(p)-(c.rech||0)+ajustesProd(p);}
 // ── Cajas por pallet (clamshell por regla; ensaladera por tabla provista) ──
 const CAJAS_PALLET_ENS={
-  E900:{1000:24,300:36,440:30,100:72},
-  T900:{500:24,300:72,440:60,100:112},
-  E910:{1000:24,300:36,440:30,100:72},
+  E900:{500:24,440:30,300:36,100:72},
+  T900:{1000:24,440:60,300:72,100:112},
+  S900:{1000:24,440:60,300:72,100:112},
+  E910:{500:24,440:30,300:36,100:72},
 };
 function cajasXPallet(prod,uxp){
   const c=CAT[prod];if(!c)return null;
@@ -1058,15 +1059,17 @@ function stockByBox(p){
   // 4) residuo sin formato (stock inicial o ajustes viejos): se reparte para que el detalle cierre con el total
   const asignado=arr.reduce((s,x)=>s+x.uds,0);
   const resid=sa-asignado;
-  if(resid!==0){
-    const pos=arr.filter(x=>x.uds>0),base=pos.length?pos:arr;
-    const tot=base.reduce((s,x)=>s+Math.abs(x.uds),0);
-    if(tot>0)base.forEach(x=>{x.uds+=resid*(Math.abs(x.uds)/tot);});
-    else arr[0].uds+=resid;
-  }
   arr.sort((a,b)=>b.uxp-a.uxp);
-  return arr.map(x=>{const stU=x.uds;const stC=x.uxp>0?stU/x.uxp:0;const cpp=x.cpp;return {uxp:x.uxp,frac:sa?stU/sa:0,stU:Math.round(stU),stC:Math.round(stC),stP:cpp>0?Math.round(stC/cpp*10)/10:0,cpp};});
+  const out=arr.map(x=>{const stU=x.uds;const stC=x.uxp>0?stU/x.uxp:0;const cpp=x.cpp;return {uxp:x.uxp,frac:sa?stU/sa:0,stU:Math.round(stU),stC:Math.round(stC),stP:cpp>0?Math.round(stC/cpp*10)/10:0,cpp};});
+  // El residuo YA NO se reparte entre formatos (eso hacia que las cajas se movieran solas).
+  // Queda como fila aparte "Sin formato" para que se vea de donde sale el descuadre.
+  if(Math.abs(resid)>=1)out.push({uxp:0,sinFmt:true,frac:sa?resid/sa:0,stU:Math.round(resid),stC:0,stP:0,cpp:0});
+  return out;
 }
+// Unidades producidas en bobinas sin tipo de caja cargado (una de las causas del residuo)
+function sinFmtProd(p){return DB.bobinas.filter(b=>b.prod===p&&!(+b.uxp)).reduce((s,b)=>s+(b.uds||0),0);}
+// Pedidos sin formato de caja cargado (la otra causa: se les imputa un formato que va cambiando)
+function sinFmtPed(p){return DB.pedidos.filter(x=>x.prod===p&&!(+x.caja)).length;}
 function eficProm(p){const g={};DB.bobinas.filter(b=>b.prod===p).forEach(b=>{const k=b.fecha+'|'+b.turno;g[k]=(g[k]||0)+(b.uds||0);});const vs=[];Object.keys(g).forEach(k=>{const t=k.split('|')[1];const o=objetivoTurno(p,t);if(o>0)vs.push(g[k]/o*100);});return vs.length?Math.round(vs.reduce((a,v)=>a+v,0)/vs.length):null;}
 function turnosProd(p){const s=new Set();DB.bobinas.filter(b=>b.prod===p).forEach(b=>s.add(b.fecha+'|'+b.turno));return s.size;}
 
@@ -1173,8 +1176,15 @@ let stockSoloMov=true;
 function boxDetail(p,boxes){
   const tU=boxes.reduce((s,x)=>s+x.stU,0),tC=boxes.reduce((s,x)=>s+x.stC,0),tP=Math.round(boxes.reduce((s,x)=>s+x.stP,0)*10)/10;
   const ttl=`Stock de <b>${p}</b> en planta, repartido por tipo de caja`;
-  const note='Saldo por formato = recuento + producción − entregas de ese formato.&nbsp;&nbsp;·&nbsp;&nbsp;Cajas = unidades ÷ u/caja&nbsp;&nbsp;·&nbsp;&nbsp;Pallets = cajas ÷ cajas por pallet';
-  return `<div class="boxwrap"><div class="boxttl">${ttl}</div><table class="boxtbl"><thead><tr><th>Tamaño de caja</th><th>Unidades</th><th>Cajas</th><th>Pallets</th></tr></thead><tbody>${boxes.map(x=>`<tr><td class="bx-fmt"><b>${fmt(x.uxp)}</b> u/caja${x.cpp?`<span>${x.cpp} cajas por pallet</span>`:'<span>—</span>'}</td><td class="bx-n">${fmt(x.stU)}</td><td class="bx-n">${fmt(x.stC)}</td><td class="bx-n">${x.stP?x.stP:'—'}</td></tr>`).join('')}<tr class="bx-tot"><td>Total en planta</td><td class="bx-n">${fmt(tU)}</td><td class="bx-n">${fmt(tC)}</td><td class="bx-n">${tP}</td></tr></tbody></table><div class="boxnote">${note}</div></div>`;
+  let note='Saldo por formato = recuento + producción − entregas de ese formato.&nbsp;&nbsp;·&nbsp;&nbsp;Cajas = unidades ÷ u/caja&nbsp;&nbsp;·&nbsp;&nbsp;Pallets = cajas ÷ cajas por pallet';
+  if(boxes.some(x=>x.sinFmt)){
+    const sb=sinFmtProd(p),sp=sinFmtPed(p);const cs=[];
+    if(sb)cs.push(`${fmt(sb)} u producidas en bobinas <b>sin u/caja cargado</b>`);
+    if(sp)cs.push(`${sp} pedido${sp>1?'s':''} <b>sin formato de caja</b>`);
+    cs.push('stock inicial o ajustes sin formato');
+    note+=`<br><b style="color:var(--bad)">Sin formato:</b> unidades que no se pueden imputar a ningun tamano de caja, por eso no suman cajas ni pallets. Revisar: ${cs.join(' &middot; ')}.`;
+  }
+  return `<div class="boxwrap"><div class="boxttl">${ttl}</div><table class="boxtbl"><thead><tr><th>Tamaño de caja</th><th>Unidades</th><th>Cajas</th><th>Pallets</th></tr></thead><tbody>${boxes.map(x=>x.sinFmt?`<tr style="opacity:.75"><td class="bx-fmt"><b style="color:var(--bad)">Sin formato</b><span>no imputado a ningun tamano de caja</span></td><td class="bx-n" style="color:var(--bad)">${fmt(x.stU)}</td><td class="bx-n">&mdash;</td><td class="bx-n">&mdash;</td></tr>`:`<tr><td class="bx-fmt"><b>${fmt(x.uxp)}</b> u/caja${x.cpp?`<span>${x.cpp} cajas por pallet</span>`:'<span style="color:var(--bad)">falta cajas/pallet</span>'}</td><td class="bx-n">${fmt(x.stU)}</td><td class="bx-n">${fmt(x.stC)}</td><td class="bx-n">${x.stP?x.stP:'—'}</td></tr>`).join('')}<tr class="bx-tot"><td>Total en planta</td><td class="bx-n">${fmt(tU)}</td><td class="bx-n">${fmt(tC)}</td><td class="bx-n">${tP}</td></tr></tbody></table><div class="boxnote">${note}</div></div>`;
 }
 function toggleStockRow(row){const d=row.nextElementSibling;const op=row.classList.toggle('open');if(d&&d.classList.contains('stk-detail'))d.style.display=op?'table-row':'none';}
 function tieneMov(p){return producido(p)>0||vendido(p)>0||stockActual(p)!==0||enPedido(p)>0||(stockCfg(p).ini||0)>0||ajustesProd(p)!==0;}
