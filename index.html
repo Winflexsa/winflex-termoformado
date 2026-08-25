@@ -790,7 +790,7 @@ const CAT={
   F43:{fam:'Clamshell',bocas:6,golpes:22,peso:12.8,cajas:[600,900]},
   F50:{fam:'Clamshell',bocas:3,golpes:22,peso:23,  cajas:[300,600]},
   F61:{fam:'Clamshell',bocas:3,golpes:22,peso:26,  cajas:[300,600]},
-  F63:{fam:'Clamshell',bocas:3,golpes:22,peso:23.2,cajas:[300,600]},
+  F63:{fam:'Clamshell',bocas:3,golpes:22,peso:23.2,cajas:[300,400,600]},
   E900:{fam:'Ensaladera',bocas:6,golpes:22,peso:17, cajas:[100,300,440,500,880,1000]},
   T900:{fam:'Ensaladera',bocas:6,golpes:22,peso:11, cajas:[100,300,440,500,880,1000]},
   S900:{fam:'Ensaladera',bocas:6,golpes:22,peso:6.5,cajas:[100,300,440,500,880,1000]},
@@ -986,9 +986,14 @@ const CAJAS_PALLET_ENS={
   S900:{1000:24,440:60,300:72,100:112},
   E910:{500:24,440:30,300:36,100:72},
 };
+// Overrides de cajas/pallet para clamshells (medidas de caja que no siguen la regla general)
+const CAJAS_PALLET_CLAM={
+  F63:{400:18},
+};
 function cajasXPallet(prod,uxp){
   const c=CAT[prod];if(!c)return null;
   if(c.fam==='Ensaladera'){const m=CAJAS_PALLET_ENS[prod];return (m&&m[uxp])?m[uxp]:null;}
+  const ov=CAJAS_PALLET_CLAM[prod]; if(ov&&ov[uxp])return ov[uxp];
   if(['F40','F41','F43'].includes(prod))return uxp<=600?24:18;
   return uxp<=300?24:18;
 }
