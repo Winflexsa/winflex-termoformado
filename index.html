@@ -1020,22 +1020,26 @@ function palletsTotalP(p){return palletsProd(p)+realPalletsP(p);}
 // ── Saldo por tipo de caja: cada formato lleva su propia cuenta (NO se reparte el total) ──
 function boxOfPed(x){return (+x.caja)||0;}
 // Producción acumulada por formato (opcionalmente hasta una fecha inclusive)
-function prodByBoxMap(p,upto){const m={};DB.bobinas.filter(b=>b.prod===p&&(!upto||((b.fecha||'')<=upto))).forEach(b=>{const u=+b.uxp||0;if(!u)return;m[u]=(m[u]||0)+(b.uds||0);});return m;}
+function prodByBoxMap(p,upto){const m={};DB.bobinas.filter(b=>b.prod===p&&(!upto||((b.fecha||'')<=upto))).forEach(b=>{const u=+b.uxp||0;m[u]=(m[u]||0)+(b.uds||0);});return m;} // clave 0 = bobinas sin u/caja
 // Entregas acumuladas por formato (opcionalmente hasta una fecha inclusive)
 function vendByBoxMap(p,upto){
   const m={};
   DB.pedidos.filter(x=>x.prod===p).forEach(x=>{
-    const u=boxOfPed(x)||presFor(p);if(!u)return;
+    // Sin formato de caja cargado -> clave 0: NO se imputa a ningun formato (antes iba al mas producido y lo dejaba en negativo)
+    const u=boxOfPed(x)||0;
     let ent;
     if(x.estado==='Cancelado')ent=0;
     else if(x.estado==='Entregado'&&!(x.entregas&&x.entregas.length))ent=(!upto||((x.fecha||'')<=upto))?(x.uds||0):0;
     else ent=Math.min((x.entregas||[]).filter(e=>!upto||((e.fecha||'')<=upto)).reduce((s,e)=>s+(e.uds||0),0),x.uds||0);
     if(ent)m[u]=(m[u]||0)+ent;
   });
+  m._v2=true; // marca: snapshot generado con clave 0 para pedidos sin formato
   return m;
 }
 // Ajustes manuales que sí tienen formato cargado
-function ajustesByBoxMap(p){const m={};(DB.ajustes||[]).filter(a=>a.prod===p&&!(a.motivo||'').startsWith('Establecer stock real')&&+a.uxp).forEach(a=>{const u=+a.uxp;m[u]=(m[u]||0)+(a.cantidad||0);});return m;}
+// Si hay recuento, solo cuentan los ajustes posteriores (los anteriores ya estan dentro del recuento)
+function ajustesByBoxMap(p,desde){const m={};(DB.ajustes||[]).filter(a=>a.prod===p&&!(a.motivo||'').startsWith('Establecer stock real')&&+a.uxp&&(!desde||(a.fecha||'')>desde)).forEach(a=>{const u=+a.uxp;m[u]=(m[u]||0)+(a.cantidad||0);});return m;}
+function ajustesSinFmt(p,desde){return (DB.ajustes||[]).filter(a=>a.prod===p&&!(a.motivo||'').startsWith('Establecer stock real')&&!(+a.uxp)&&(!desde||(a.fecha||'')>desde)).reduce((s,a)=>s+(a.cantidad||0),0);}
 function stockByBox(p){
   const sa=stockActual(p);
   const cfgReal=(DB.stockConfig[p]||{}).real;
@@ -1048,22 +1052,36 @@ function stockByBox(p){
     // 2) movimientos POSTERIORES al recuento, cada uno en SU formato
     const fReal=(cfgReal&&cfgReal.fecha)||'';
     const pSnap=(cfgReal&&cfgReal.prodSnap)||prodByBoxMap(p,fReal); // fallback p/ recuentos viejos sin snapshot
-    const vSnap=(cfgReal&&cfgReal.vendSnap)||vendByBoxMap(p,fReal);
+    // snapshots viejos (sin _v2) imputaban los pedidos sin formato a un formato: se recalculan por fecha
+    const vSnap=(cfgReal&&cfgReal.vendSnap&&cfgReal.vendSnap._v2)?cfgReal.vendSnap:vendByBoxMap(p,fReal);
     const pNow=prodByBoxMap(p),vNow=vendByBoxMap(p);
-    Object.keys(pNow).forEach(u=>{const d=pNow[u]-(+pSnap[u]||0);if(d)ensure(u).uds+=d;});
-    Object.keys(vNow).forEach(u=>{const d=vNow[u]-(+vSnap[u]||0);if(d)ensure(u).uds-=d;});
+    Object.keys(pNow).forEach(u=>{if(!(+u>0))return;const d=pNow[u]-(+pSnap[u]||0);if(d)ensure(u).uds+=d;});
+    Object.keys(vNow).forEach(u=>{if(!(+u>0))return;const d=vNow[u]-(+vSnap[u]||0);if(d)ensure(u).uds-=d;});
   }else{
     const pNow=prodByBoxMap(p),vNow=vendByBoxMap(p);
-    Object.keys(pNow).forEach(u=>{ensure(u).uds+=pNow[u];});
-    Object.keys(vNow).forEach(u=>{ensure(u).uds-=vNow[u];});
+    Object.keys(pNow).forEach(u=>{if(!(+u>0))return;ensure(u).uds+=pNow[u];});
+    Object.keys(vNow).forEach(u=>{if(!(+u>0))return;ensure(u).uds-=vNow[u];});
   }
-  // 3) ajustes manuales con formato
-  const aj=ajustesByBoxMap(p);Object.keys(aj).forEach(u=>{ensure(u).uds+=aj[u];});
+  // 3) ajustes manuales con formato (si hay recuento, solo los posteriores)
+  const fDesde=real?(((cfgReal&&cfgReal.fecha)||'')):'';
+  const aj=ajustesByBoxMap(p,fDesde);Object.keys(aj).forEach(u=>{ensure(u).uds+=aj[u];});
   let arr=Object.values(m).filter(x=>x.uxp>0);
   if(!arr.length)return [];
-  // 4) residuo sin formato (stock inicial o ajustes viejos): se reparte para que el detalle cierre con el total
   const asignado=arr.reduce((s,x)=>s+x.uds,0);
-  const resid=sa-asignado;
+  // 4) residuo "Sin formato"
+  let resid;
+  if(real){
+    // Con recuento fisico, el recuento MANDA: lo anterior a esa fecha no se mira mas (cargas/ediciones
+    // con fecha vieja hechas despues del recuento ya no generan descuadre). Solo cuentan los movimientos
+    // posteriores que no tienen formato: bobinas sin u/caja, pedidos sin tipo de caja y ajustes sin formato.
+    const fReal=(cfgReal&&cfgReal.fecha)||'';
+    const pS=(cfgReal&&cfgReal.prodSnap)||prodByBoxMap(p,fReal);
+    const vS=(cfgReal&&cfgReal.vendSnap&&cfgReal.vendSnap._v2)?cfgReal.vendSnap:vendByBoxMap(p,fReal);
+    const pN=prodByBoxMap(p),vN=vendByBoxMap(p);
+    resid=((+pN[0]||0)-(+pS[0]||0))-((+vN[0]||0)-(+vS[0]||0))+ajustesSinFmt(p,fReal);
+  }else{
+    resid=sa-asignado; // sin recuento: stock inicial, ajustes viejos, etc.
+  }
   arr.sort((a,b)=>b.uxp-a.uxp);
   const out=arr.map(x=>{const stU=x.uds;const stC=x.uxp>0?stU/x.uxp:0;const cpp=x.cpp;return {uxp:x.uxp,frac:sa?stU/sa:0,stU:Math.round(stU),stC:Math.round(stC),stP:cpp>0?Math.round(stC/cpp*10)/10:0,cpp};});
   // El residuo YA NO se reparte entre formatos (eso hacia que las cajas se movieran solas).
@@ -1091,9 +1109,11 @@ function pedsIncoherentes(p){
   }).map(x=>({cliente:x.cliente,fecha:x.fecha,uds:x.uds||0,ent:x.entregas.reduce((s,y)=>s+(y.uds||0),0)}));
 }
 // Unidades producidas en bobinas sin tipo de caja cargado (una de las causas del residuo)
-function sinFmtProd(p){return DB.bobinas.filter(b=>b.prod===p&&!(+b.uxp)).reduce((s,b)=>s+(b.uds||0),0);}
+function sinFmtProd(p){const r=(DB.stockConfig[p]||{}).real,f=(r&&r.fecha)||'';return DB.bobinas.filter(b=>b.prod===p&&!(+b.uxp)&&(!f||(b.fecha||'')>f)).reduce((s,b)=>s+(b.uds||0),0);}
 // Pedidos sin formato de caja cargado (la otra causa: se les imputa un formato que va cambiando)
-function sinFmtPed(p){return DB.pedidos.filter(x=>x.prod===p&&!(+x.caja)).length;}
+// Solo cuentan los posteriores al recuento (los anteriores ya estan dentro del recuento) y con entregas
+function sinFmtPed(p){const r=(DB.stockConfig[p]||{}).real,f=(r&&r.fecha)||'';return DB.pedidos.filter(x=>x.prod===p&&!(+x.caja)&&x.estado!=='Cancelado'&&pedEntregado(x)>0&&(!f||(x.fecha||'')>f)).length;}
+function sinFmtPedUds(p){const r=(DB.stockConfig[p]||{}).real,f=(r&&r.fecha)||'';return DB.pedidos.filter(x=>x.prod===p&&!(+x.caja)&&x.estado!=='Cancelado'&&(!f||(x.fecha||'')>f)).reduce((s,x)=>s+pedEntregado(x),0);}
 // ── Orden y hora de carga de cada bobina ──
 // El id se genera con Date.now() (tablet: "1755...", panel: "man-1755..."), asi que
 // sirve como orden real de carga. Fallback: fecha + hora declarada.
@@ -1222,10 +1242,12 @@ function boxDetail(p,boxes){
   if(boxes.some(x=>x.sinFmt)){
     const sb=sinFmtProd(p),sp=sinFmtPed(p);const cs=[];
     if(sb)cs.push(`${fmt(sb)} u producidas en bobinas <b>sin u/caja cargado</b>`);
-    if(sp)cs.push(`${sp} pedido${sp>1?'s':''} <b>sin formato de caja</b>`);
+    if(sp)cs.push(`${sp} pedido${sp>1?'s':''} <b>sin formato de caja</b> posterior${sp>1?'es':''} al recuento (${fmt(sinFmtPedUds(p))} u entregadas que no se descuentan de ningun formato: cargarles el tipo de caja)`);
     const inc=pedsIncoherentes(p);
     if(inc.length)cs.push(`${inc.length} pedido${inc.length>1?'s':''} marcado${inc.length>1?'s':''} <b>Entregado con entregas parciales cargadas</b> (${inc.map(x=>`${x.cliente||'?'} ${(x.fecha||'').slice(5)}: pedido ${fmt(x.uds)} u / entregas ${fmt(x.ent)} u`).join(' &middot; ')})`);
-    cs.push('stock inicial o ajustes sin formato');
+    const asf=ajustesSinFmt(p,((DB.stockConfig[p]||{}).real||{}).fecha||'');
+    if(asf)cs.push(`ajustes de inventario <b>sin formato</b> por ${fmt(asf)} u`);
+    if(!stockRealBoxes(p))cs.push('stock inicial o ajustes sin formato (no hay recuento fisico cargado)');
     note+=`<br><b style="color:var(--bad)">Sin formato:</b> unidades que no se pueden imputar a ningun tamano de caja. No suman cajas ni pallets y <b>tampoco se cuentan en el stock en planta</b>, porque hay recuento fisico cargado y ese manda. Revisar: ${cs.join(' &middot; ')}.`;
   }
   return `<div class="boxwrap"><div class="boxttl">${ttl}</div><table class="boxtbl"><thead><tr><th>Tamaño de caja</th><th>Unidades</th><th>Cajas</th><th>Pallets</th></tr></thead><tbody>${boxes.map(x=>x.sinFmt?`<tr style="opacity:.75"><td class="bx-fmt"><b style="color:var(--bad)">Sin formato</b><span>no imputado a ningun tamano de caja</span></td><td class="bx-n" style="color:var(--bad)">${fmt(x.stU)}</td><td class="bx-n">&mdash;</td><td class="bx-n">&mdash;</td></tr>`:`<tr><td class="bx-fmt"><b>${fmt(x.uxp)}</b> u/caja${x.cpp?`<span>${x.cpp} cajas por pallet</span>`:'<span style="color:var(--bad)">falta cajas/pallet</span>'}</td><td class="bx-n">${fmt(x.stU)}</td><td class="bx-n">${fmt(x.stC)}</td><td class="bx-n">${x.stP?x.stP:'—'}</td></tr>`).join('')}<tr class="bx-tot"><td>Total en planta</td><td class="bx-n">${fmt(tU)}</td><td class="bx-n">${fmt(tC)}</td><td class="bx-n">${tP}</td></tr></tbody></table><div class="boxnote">${note}</div></div>`;
