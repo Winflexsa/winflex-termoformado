@@ -377,16 +377,16 @@ const CAT={
   F50:{fam:'Clamshell',bocas:3,golpes:22,peso:23,  cajas:[300,600]},
   F61:{fam:'Clamshell',bocas:3,golpes:22,peso:26,  cajas:[300,600]},
   F63:{fam:'Clamshell',bocas:3,golpes:22,peso:23.2,cajas:[300,400,600]},
-  E900:{fam:'Ensaladera',bocas:6,golpes:22,peso:17, cajas:[100,300,440,500,880,1000]},
-  T900:{fam:'Ensaladera',bocas:6,golpes:22,peso:11, cajas:[100,300,440,500,880,1000]},
-  S900:{fam:'Ensaladera',bocas:6,golpes:22,peso:6.5,cajas:[100,300,440,500,880,1000]},
-  E910:{fam:'Ensaladera',bocas:6,golpes:22,peso:17, cajas:[100,300,440,500,880,1000]},
+  E900:{fam:'Ensaladera',bocas:6,golpes:22,peso:17, cajas:[100,300,400,440,500]},
+  T900:{fam:'Ensaladera',bocas:6,golpes:22,peso:11, cajas:[100,300,400,440,1000]},
+  S900:{fam:'Ensaladera',bocas:6,golpes:22,peso:6.5,cajas:[100,300,880,1000]},
+  E910:{fam:'Ensaladera',bocas:6,golpes:22,peso:17, cajas:[100,300,440,500]},
 };
 function objetivoTurno(prod,turno){const c=CAT[prod];if(!c||!turno)return 0;return Math.round(c.bocas*c.golpes*60*HORAS[turno]*FACTOR);}
 const CAJAS_PALLET_ENS={
-  E900:{500:24,440:30,300:36,100:72},
-  T900:{1000:24,440:60,300:72,100:112},
-  S900:{1000:24,440:60,300:72,100:112},
+  E900:{500:24,440:30,400:24,300:36,100:72},
+  T900:{1000:24,440:60,400:45,300:72,100:112},
+  S900:{1000:24,880:30,300:72,100:112},
   E910:{500:24,440:30,300:36,100:72},
 };
 // Overrides de cajas/pallet para clamshells (medidas de caja que no siguen la regla general)
@@ -526,7 +526,7 @@ async function saveToCloud(isNew){
       if(!_skipBobMerge)pendGet().forEach(b=>{if(b&&b.id!=null&&!tombIds.has(b.id)&&!bobs.some(x=>x.id===b.id))bobs.push(b);});
       payload.bobinas=bobs.filter(b=>!tombIds.has(b.id));
       // lo que maneja sólo el portal: se preserva tal cual está en la nube
-      ['ajustes','clientes','cronograma','pedidos','stockConfig'].forEach(k=>{if(latest[k]!==undefined)payload[k]=latest[k];});
+      Object.keys(latest).forEach(k=>{if(!(k in mine)&&k!=='bobinas'&&k!=='bobinasBorradas')payload[k]=latest[k];});
       return payload;
     };
     const put=async(payload)=>{
