@@ -393,6 +393,16 @@ tr.cli-row.open{background:var(--surf2)}
 .eo-inp input{flex:1;max-width:150px;font-family:'DM Mono',monospace;padding:9px 11px;border:1px solid var(--border);border-radius:9px;font-size:15px;background:var(--surf)}
 .eo-all{border:1px solid var(--green);background:var(--green-l);color:var(--green-d);border-radius:9px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
 .eo-cj{font-size:12px;color:var(--text3)}
+.el-row{display:grid;grid-template-columns:minmax(96px,1.2fr) 1fr 1fr minmax(88px,1fr) 30px;gap:7px;align-items:center;margin-bottom:6px}
+.el-row select,.el-row input{width:100%;box-sizing:border-box;font-family:'DM Mono',monospace;padding:8px 9px;border:1px solid var(--border);border-radius:9px;font-size:14px;background:var(--surf)}
+.el-row .el-u{font-family:'DM Mono',monospace;font-size:13px;color:var(--text2);text-align:right;white-space:nowrap}
+.el-row .el-x{border:none;background:none;color:var(--text3);cursor:pointer;font-size:15px;padding:4px}
+.el-head{display:grid;grid-template-columns:minmax(96px,1.2fr) 1fr 1fr minmax(88px,1fr) 30px;gap:7px;font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;margin:8px 0 4px;padding:0 2px}
+.el-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
+.el-add{border:1px dashed var(--border);background:none;color:var(--text2);border-radius:9px;padding:6px 10px;font-size:12px;cursor:pointer}
+.el-tot{font-family:'DM Mono',monospace;font-size:13px;font-weight:700}
+.el-tot.over{color:var(--bad)}
+.el-warn{font-size:12px;color:var(--bad);margin-top:4px}
 .eo-ok{font-size:13px;color:var(--ok);font-weight:600}
 .ped-est{border:1px solid var(--border2);border-radius:7px;padding:4px 6px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--surf)}
 .ped-uds{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:flex-end;font-family:inherit;color:var(--text);padding:0}
@@ -665,8 +675,10 @@ tr.cli-row.open{background:var(--surf2)}
     <div class="ent-sec-t" style="margin-top:16px">➕ Registrar nueva entrega</div>
     <div class="frow">
       <div class="field"><label>Fecha</label><input type="date" id="ent-fecha"></div>
-      <div class="field"><label>Unidades entregadas</label><input type="number" id="ent-uds" inputmode="numeric" placeholder="0"></div>
+      <div class="field"><label>&nbsp;</label><button type="button" class="eo-all" id="ent-todo" onclick="elTodo('ent')">todo lo pendiente</button></div>
     </div>
+    <div class="ent-sec-t" style="margin-top:8px">🪵 Pallets y cajas entregadas <span style="font-weight:400;color:var(--text3);font-size:11.5px">(cargá pallets o cajas; un pallet puede ir con distintos tamaños de caja: agregá una línea por tamaño)</span></div>
+    <div id="el-ent"></div>
     <div class="frow c1"><div class="field"><label>Observación (opcional)</label><input type="text" id="ent-obs" placeholder="Remito, comentario…"></div></div>
     </div>
     <div id="ent-done" style="display:none;margin-top:14px;padding:12px;background:var(--green-l);border-radius:10px;color:var(--green);font-weight:600;text-align:center">✓ Pedido entregado por completo — saldo $0</div>
@@ -677,7 +689,7 @@ tr.cli-row.open{background:var(--surf2)}
 <div class="modal-ov" id="modal-ent-orden">
   <div class="modal">
     <h3 id="eo-title">Registrar entrega</h3>
-    <p style="color:var(--text3);font-size:13px;margin:-6px 0 12px">Cargá lo entregado de cada producto. Se descuenta del stock al guardar. Dejá en blanco o 0 lo que no entregaste.</p>
+    <p style="color:var(--text3);font-size:13px;margin:-6px 0 12px">Cargá los pallets o cajas entregados de cada producto (una línea por tamaño de caja). Se descuenta del stock por formato al guardar. Dejá en blanco lo que no entregaste.</p>
     <div class="frow c1"><div class="field"><label>Fecha de entrega</label><input type="date" id="eo-fecha"></div></div>
     <div id="eo-lines"></div>
     <div class="frow c1"><div class="field"><label>Observación (opcional)</label><input type="text" id="eo-obs" placeholder="Remito, comentario…"></div></div>
@@ -1001,7 +1013,7 @@ function bobsFam(){return DB.bobinas.filter(b=>famOk(b.prod));}
 function producido(p){return DB.bobinas.filter(b=>b.prod===p).reduce((s,b)=>s+(b.uds||0),0);}
 function cajasProd(p){return DB.bobinas.filter(b=>b.prod===p).reduce((s,b)=>s+(b.cajas||0),0);}
 function palletsProd(p){return DB.pallets.filter(x=>x.prod===p).length;}
-function vendido(p){return DB.pedidos.filter(x=>x.prod===p).reduce((s,x)=>s+pedEntregado(x),0);}
+function vendido(p){return DB.pedidos.filter(x=>x.prod===p).reduce((s,x)=>s+pedSalida(x),0);}
 function enPedido(p){return DB.pedidos.filter(x=>x.prod===p&&x.estado!=='Cancelado'&&x.estado!=='Entregado').reduce((s,x)=>s+pedPendiente(x),0);}
 function stockCfg(p){return DB.stockConfig[p]||{ini:0,rech:0};}
 function ajustesProd(p){return (DB.ajustes||[]).filter(a=>a.prod===p).reduce((s,a)=>s+(a.cantidad||0),0);}
@@ -1074,7 +1086,9 @@ function movsPost(p){
       if(posterior(c,x.fecha,tp))out.push({t:'vend',uxp:u,uds:x.uds||0,ref:x});else if(atrasado(c,x.fecha,tp))atr.push({t:'Entrega',fecha:x.fecha,uds:x.uds||0,uxp:u,cliente:x.cliente,ref:x});
       return;
     }
-    let acum=0;(x.entregas||[]).forEach(e=>{const uds=Math.max(0,Math.min(e.uds||0,(x.uds||0)-acum));acum+=uds;if(!uds)return;const te=e.ts||tp;if(posterior(c,e.fecha,te))out.push({t:'vend',uxp:u,uds,ref:x});else if(atrasado(c,e.fecha,te))atr.push({t:'Entrega',fecha:e.fecha,uds,uxp:u,cliente:x.cliente,ref:x});});
+    (x.entregas||[]).forEach(e=>{const te=e.ts||tp;
+      const ls=(e.lineas&&e.lineas.length)?e.lineas.map(l=>({uxp:+l.uxp||0,uds:+l.uds||0})):[{uxp:u,uds:e.uds||0}];
+      ls.forEach(l=>{if(!l.uds)return;if(posterior(c,e.fecha,te))out.push({t:'vend',uxp:l.uxp,uds:l.uds,ref:x});else if(atrasado(c,e.fecha,te))atr.push({t:'Entrega',fecha:e.fecha,uds:l.uds,uxp:l.uxp,cliente:x.cliente,ref:x});});});
   });
   (DB.ajustes||[]).forEach(a=>{if(a.prod!==p||(a.motivo||'').startsWith('Establecer stock real'))return;const ts=a.mod||tsCarga(a);if(posterior(c,a.fecha,ts))out.push({t:'aj',uxp:+a.uxp||0,uds:a.cantidad||0,ref:a});else if(atrasado(c,a.fecha,ts))atr.push({t:'Ajuste',fecha:a.fecha,uds:a.cantidad||0,uxp:+a.uxp||0,ref:a});});
   return {corte:c,movs:out,atrasados:atr};
@@ -1109,7 +1123,7 @@ function pedsIncoherentes(p){
     if(x.prod!==p||x.estado!=='Entregado')return false;
     if(!(x.entregas&&x.entregas.length))return false;
     const e=x.entregas.reduce((s,y)=>s+(y.uds||0),0);
-    return e!==(x.uds||0);
+    return e<(x.uds||0);
   }).map(x=>({cliente:x.cliente,fecha:x.fecha,uds:x.uds||0,ent:x.entregas.reduce((s,y)=>s+(y.uds||0),0)}));
 }
 function sinFmtProd(p){return movsPost(p).movs.filter(m=>m.t==='prod'&&!m.uxp).reduce((s,m)=>s+m.uds,0);}
@@ -1447,26 +1461,79 @@ async function savePedido(){
   if(!items.length)return toast('Agregá al menos un producto con unidades','warn');
   const bad=items.find(it=>!cajaValida(it.prod,it.caja));
   if(bad)return toast(`${bad.prod} no va en caja de ${fmt(bad.caja)}. Cajas válidas: ${CAT[bad.prod].cajas.map(fmt).join(' / ')}`,'warn');
+  let pedirEntrega=null;
+  if(editPedId){const p0=DB.pedidos.find(x=>x.id===editPedId);if(p0&&shared.estado==='Entregado'&&p0.estado!=='Entregado'&&!(p0.entregas&&p0.entregas.length)){shared.estado=p0.estado==='Cancelado'?'Pendiente':p0.estado;pedirEntrega=editPedId;}}
   if(editPedId){const p=DB.pedidos.find(x=>x.id===editPedId);if(p.prod!==items[0].prod&&p.entregas&&p.entregas.length&&!confirm('Este pedido tiene entregas cargadas como '+p.prod+'. ¿Pasarlas a '+items[0].prod+'?'))return;Object.assign(p,shared,{prod:items[0].prod,caja:items[0].caja,uds:items[0].uds});touch(p);items.slice(1).forEach(it=>DB.pedidos.push(touch(Object.assign({id:genPedId(),entregas:[]},shared,it))));}
   else{items.forEach(it=>DB.pedidos.push(touch(Object.assign({id:genPedId(),entregas:[]},shared,it))));}
-  closeModal('modal-ped');const ok=await saveToCloud();if(ok)toast(items.length>1?items.length+' productos guardados ✓':'Pedido guardado ✓');}
+  closeModal('modal-ped');const ok=await saveToCloud();if(ok)toast(items.length>1?items.length+' productos guardados ✓':'Pedido guardado ✓');
+  if(pedirEntrega){renderPedidos();toast('Cargá los pallets/cajas que salieron: el pedido pasa a Entregado solo','warn');openEntregas(pedirEntrega);elTodo('ent');}}
 async function delPedido(id){if(!confirm('¿Borrar este pedido?'))return;DB.pedidos=DB.pedidos.filter(p=>p.id!==id);(DB.pedidosBorrados=DB.pedidosBorrados||[]).push({id,ts:nowISO()});const ok=await saveToCloud();if(ok)toast('Pedido borrado');}
 let entPedId=null;
 async function cambiarEstadoRapido(id,val){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   if(val==='Pendiente'&&p.entregas&&p.entregas.length){if(!confirm('Este pedido tiene entregas registradas. ¿Volver a Pendiente y borrar esas entregas?')){renderPedidos();return;}p.entregas=[];}
-  if(val==='Entregado')p.entregas=[];
+  // Entregado NO se marca a mano: se cargan los pallets/cajas que salieron y el estado se calcula solo,
+  // así el stock descuenta del formato correcto y los pallets cierran.
+  if(val==='Entregado'&&p.estado!=='Entregado'&&pedPendiente(p)>0){renderPedidos();toast('Cargá los pallets/cajas que salieron: el pedido pasa a Entregado solo y el stock descuenta bien','warn');openEntregas(id);elTodo('ent');return;}
   p.estado=val;touch(p);
   renderPedidos();
   const ok=await saveToCloud();if(ok)toast('Estado: '+val);
   if(val==='Parcial'&&!(p.entregas&&p.entregas.length))openEntregas(id);
 }
 function recomputeEstadoPed(p){if(p.estado==='Cancelado')return;const ent=Math.min((p.entregas||[]).reduce((s,x)=>s+(x.uds||0),0),p.uds||0);p.estado = ent<=0?'Pendiente' : (ent>=(p.uds||0)?'Entregado':'Parcial');}
+
+// ════════ LÍNEAS DE ENTREGA (pallets / cajas por tamaño de caja) ════════
+// Cada entrega puede tener varias líneas {uxp, pal, cajas, uds}; el stock descuenta cada línea de SU formato.
+// Las entregas viejas (solo uds, sin lineas) siguen imputándose al formato del pedido.
+const EL={}; // key -> {prod, pedId, rows:[{uxp,pal,cajas}]}
+function elDefBox(p){const c=boxOfPed(p);if(c&&cajaValida(p.prod,c))return c;const l=(CAT[p.prod]&&CAT[p.prod].cajas)||[];return l[0]||0;}
+function elInit(key,p){EL[key]={prod:p.prod,pedId:p.id,rows:[{uxp:elDefBox(p),pal:'',cajas:''}]};elRender(key);}
+function elRead(key){const st=EL[key];if(!st)return [];const rows=[...document.querySelectorAll(`#el-${key} .el-row`)].map(r=>({uxp:+r.querySelector('.el-uxp').value||0,pal:r.querySelector('.el-pal').value,cajas:r.querySelector('.el-cj').value}));st.rows=rows;return rows;}
+function elLineas(key){const st=EL[key];if(!st)return [];return elRead(key).map(r=>{const cajas=Math.round(+r.cajas||0);if(!(cajas>0)||!(r.uxp>0))return null;const cpp=cajasXPallet(st.prod,r.uxp)||0;const pal=cpp>0?Math.round(cajas/cpp*100)/100:0;return {uxp:r.uxp,cajas,pal,uds:cajas*r.uxp};}).filter(Boolean);}
+function elTotal(key){return elLineas(key).reduce((s,l)=>s+l.uds,0);}
+function elRender(key){
+  const st=EL[key];if(!st)return;const el=document.getElementById('el-'+key);if(!el)return;
+  const opts=(CAT[st.prod]&&CAT[st.prod].cajas)||[];
+  el.innerHTML=`<div class="el-head"><span>Caja (u)</span><span>Pallets</span><span>Cajas</span><span style="text-align:right">Unidades</span><span></span></div>`+
+    st.rows.map((r,i)=>`<div class="el-row" data-i="${i}">
+      <select class="el-uxp" onchange="elCalc('${key}',${i},'uxp')">${opts.map(u=>`<option value="${u}" ${+u===+r.uxp?'selected':''}>x${u}</option>`).join('')}</select>
+      <input type="number" class="el-pal" inputmode="decimal" step="any" min="0" placeholder="pal" value="${r.pal}" oninput="elCalc('${key}',${i},'pal')">
+      <input type="number" class="el-cj" inputmode="numeric" min="0" placeholder="cajas" value="${r.cajas}" oninput="elCalc('${key}',${i},'cj')">
+      <span class="el-u">= 0 u</span>
+      <button type="button" class="el-x" title="Quitar línea" onclick="elDel('${key}',${i})">✕</button></div>`).join('')+
+    `<div class="el-foot"><button type="button" class="el-add" onclick="elAdd('${key}')">+ otro tamaño de caja</button><div><span class="el-tot" id="el-tot-${key}">= 0 u</span></div></div><div class="el-warn" id="el-warn-${key}" style="display:none"></div>`;
+  st.rows.forEach((r,i)=>elCalc(key,i,'cj',true));
+}
+function elCalc(key,i,src,quiet){
+  const st=EL[key];if(!st)return;const row=document.querySelector(`#el-${key} .el-row[data-i="${i}"]`);if(!row)return;
+  const uxp=+row.querySelector('.el-uxp').value||0,palI=row.querySelector('.el-pal'),cjI=row.querySelector('.el-cj');
+  const cpp=cajasXPallet(st.prod,uxp)||0;
+  if(src==='pal'||(src==='uxp'&&palI.value!=='')){const pal=parseFloat(palI.value)||0;cjI.value=cpp>0&&pal>0?Math.round(pal*cpp):(palI.value===''?'':0);}
+  else if(src==='cj'){const cj=+cjI.value||0;palI.value=cpp>0&&cj>0?(Math.round(cj/cpp*100)/100):(cjI.value===''?'':'');}
+  palI.disabled=!(cpp>0);palI.title=cpp>0?`${cpp} cajas por pallet`:'sin cajas/pallet definido para esta caja';
+  const cj=Math.round(+cjI.value||0);row.querySelector('.el-u').textContent='= '+fmt(cj*uxp)+' u';
+  elSummary(key);
+}
+function elSummary(key){
+  const st=EL[key];if(!st)return;const ls=elLineas(key);const tot=ls.reduce((s,l)=>s+l.uds,0);const pal=ls.reduce((s,l)=>s+l.pal,0),cj=ls.reduce((s,l)=>s+l.cajas,0);
+  const p=DB.pedidos.find(x=>x.id===st.pedId);const pen=p?pedPendiente(p):0;
+  const tEl=document.getElementById('el-tot-'+key),wEl=document.getElementById('el-warn-'+key);if(!tEl)return;
+  tEl.textContent=`= ${fmt(tot)} u · ${Math.round(pal*100)/100} pal · ${fmt(cj)} cajas`;
+  const over=tot>pen;tEl.classList.toggle('over',over);
+  if(wEl){wEl.style.display=over?'block':'none';wEl.textContent=over?`⚠ Supera el pendiente del pedido (${fmt(pen)} u) en ${fmt(tot-pen)} u. Se registra igual y el stock descuenta lo que salió físicamente.`:'';}
+}
+function elAdd(key){const st=EL[key];if(!st)return;elRead(key);const opts=(CAT[st.prod]&&CAT[st.prod].cajas)||[];const used=st.rows.map(r=>+r.uxp);const nxt=opts.find(u=>!used.includes(+u))||opts[0]||0;st.rows.push({uxp:nxt,pal:'',cajas:''});elRender(key);}
+function elDel(key,i){const st=EL[key];if(!st)return;elRead(key);st.rows.splice(i,1);if(!st.rows.length)st.rows.push({uxp:(CAT[st.prod]&&CAT[st.prod].cajas||[])[0]||0,pal:'',cajas:''});elRender(key);}
+function elTodo(key){const st=EL[key];if(!st)return;elRead(key);const p=DB.pedidos.find(x=>x.id===st.pedId);if(!p)return;const pen=pedPendiente(p);const uxp=+st.rows[0].uxp||elDefBox(p);if(!(uxp>0))return;st.rows=[{uxp,pal:'',cajas:Math.ceil(pen/uxp)}];elRender(key);if(pen%uxp)toast(`${fmt(pen)} u no es múltiplo de ${uxp}: redondeé a ${Math.ceil(pen/uxp)} cajas`,'warn');}
+function entDesc(e){if(e.lineas&&e.lineas.length)return e.lineas.map(l=>`${l.pal?l.pal+' pal · ':''}${fmt(l.cajas)} cj x${l.uxp}`).join(' + ');return '';}
+// Salida física de un pedido (sin topear al pedido: si se entregó de más, el stock lo descuenta igual)
+function pedSalida(p){if(p.estado==='Cancelado')return 0;if(p.entregas&&p.entregas.length)return p.entregas.reduce((s,x)=>s+(x.uds||0),0);return p.estado==='Entregado'?(p.uds||0):0;}
 function openEntregas(id){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;entPedId=id;
   if(!p.entregas)p.entregas=[];
   document.getElementById('ent-title').textContent=`${p.cliente||'—'} · ${p.prod} · ${fmt(p.uds)} u`;
-  sv('ent-fecha',new Date().toISOString().split('T')[0]);sv('ent-uds','');sv('ent-obs','');
+  sv('ent-fecha',new Date().toISOString().split('T')[0]);sv('ent-obs','');
+  elInit('ent',p);
   renderEntregas();
   document.getElementById('modal-entregas').classList.add('show');
 }
@@ -1478,8 +1545,8 @@ function renderEntregas(){
     <div class="ent-kpi"><div class="v" style="color:var(--ok)">${fmt(ent)}</div><div class="l">Entregado</div></div>
     <div class="ent-kpi"><div class="v" style="color:${pen>0?'var(--mid)':'var(--text3)'}">${fmt(pen)}</div><div class="l">Pendiente</div></div>`;
   const lst=p.entregas||[];
-  document.getElementById('ent-list').innerHTML=lst.length?lst.map((e,i)=>`<div class="ent-row"><div><b class="mono">${fmt(e.uds)}</b> u <span style="color:var(--text3)">· ${(e.fecha||'').slice(5)||'s/f'}</span>${e.obs?`<span class="sub">${e.obs}</span>`:''}</div><button class="linkact del" onclick="delEntrega(${i})">🗑</button></div>`).join(''):'<div class="empty" style="padding:12px 0">Todavía no se registró ninguna entrega</div>';
-  document.getElementById('ent-uds').placeholder=pen>0?('falta '+fmt(pen)):'0';
+  document.getElementById('ent-list').innerHTML=lst.length?lst.map((e,i)=>`<div class="ent-row"><div><b class="mono">${fmt(e.uds)}</b> u <span style="color:var(--text3)">· ${(e.fecha||'').slice(5)||'s/f'}</span>${entDesc(e)?`<span class="sub">🪵 ${entDesc(e)}</span>`:'<span class="sub" style="opacity:.7">sin detalle de cajas (formato del pedido)</span>'}${e.obs?`<span class="sub">${e.obs}</span>`:''}</div><button class="linkact del" onclick="delEntrega(${i})">🗑</button></div>`).join(''):'<div class="empty" style="padding:12px 0">Todavía no se registró ninguna entrega</div>';
+  const tb=document.getElementById('ent-todo');if(tb)tb.textContent='todo lo pendiente ('+fmt(pen)+')';
   const done=pen<=0&&(p.uds||0)>0&&p.estado!=='Cancelado';
   document.getElementById('ent-form').style.display=done?'none':'block';
   document.getElementById('ent-done').style.display=done?'block':'none';
@@ -1487,14 +1554,15 @@ function renderEntregas(){
 }
 async function registrarEntrega(){
   const p=DB.pedidos.find(x=>x.id===entPedId);if(!p)return;
-  let uds=parseInt(gv('ent-uds'))||0;if(uds<=0)return toast('Poné las unidades entregadas','warn');
+  const lineas=elLineas('ent');const uds=lineas.reduce((s,l)=>s+l.uds,0);
+  if(uds<=0)return toast('Cargá pallets o cajas en al menos una línea','warn');
   if(!p.entregas)p.entregas=[];
   const pen=pedPendiente(p);
   if(pen<=0)return toast('Este pedido ya está entregado por completo','warn');
-  if(uds>pen){uds=pen;toast('Ajusté la entrega al saldo pendiente: '+fmt(pen),'warn');}
-  p.entregas.push({fecha:gv('ent-fecha')||new Date().toISOString().split('T')[0],uds,obs:gv('ent-obs').trim(),ts:nowISO()});
+  if(uds>pen&&!confirm(`Estás entregando ${fmt(uds)} u y el pedido tiene pendientes ${fmt(pen)} u (${fmt(uds-pen)} u de más).\n¿Registrar igual?`))return;
+  p.entregas.push({fecha:gv('ent-fecha')||new Date().toISOString().split('T')[0],uds,lineas,obs:gv('ent-obs').trim(),ts:nowISO()});
   recomputeEstadoPed(p);touch(p);
-  sv('ent-uds','');sv('ent-obs','');
+  sv('ent-obs','');elInit('ent',p);
   renderEntregas();renderPedidos();
   const ok=await saveToCloud();if(ok)toast('Entrega registrada ✓');
 }
@@ -1521,27 +1589,24 @@ function renderEntregaOrden(){
     return `<div class="eo-line ${done?'eo-done':''}">
       <div class="eo-line-h"><span class="prodtag ${CAT[p.prod]?.fam==='Ensaladera'?'ens':''}">${p.prod}</span>${meta}</div>
       ${done?(p.estado==='Cancelado'?'':'<div class="eo-ok">✓ entregado completo</div>'):
-        `<div class="eo-inp"><input type="number" inputmode="numeric" id="eo-uds-${id}" placeholder="0" oninput="eoCajas('${id}')">
-         <button type="button" class="eo-all" onclick="eoTodo('${id}',${pen})">todo (${fmt(pen)})</button>
-         <span class="eo-cj" id="eo-cj-${id}"></span></div>`}
+        `<div id="el-eo-${id}"></div><div style="margin-top:6px"><button type="button" class="eo-all" onclick="elTodo('eo-${id}')">todo lo pendiente (${fmt(pen)})</button></div>`}
     </div>`;
   }).join('');
+  entOrdenIds.forEach(id=>{const p=DB.pedidos.find(x=>x.id===id);if(!p||pedPendiente(p)<=0||p.estado==='Cancelado')return;elInit('eo-'+id,p);});
 }
-function eoTodo(id,pen){const el=document.getElementById('eo-uds-'+id);if(el){el.value=pen;eoCajas(id);}}
-function eoCajas(id){const p=DB.pedidos.find(x=>x.id===id);if(!p)return;const pr=p.caja||presFor(p.prod);const u=parseInt(gv('eo-uds-'+id))||0;const el=document.getElementById('eo-cj-'+id);if(el)el.textContent=(u>0&&pr>0)?('≈ '+fmt(Math.round(u/pr))+' cajas'):'';}
 async function guardarEntregaOrden(){
   const fecha=gv('eo-fecha')||new Date().toISOString().split('T')[0];const obs=gv('eo-obs').trim();
-  let n=0,totU=0;
+  let n=0,totU=0;const plan=[];const overs=[];
   entOrdenIds.forEach(id=>{
     const p=DB.pedidos.find(x=>x.id===id);if(!p||p.estado==='Cancelado')return;
-    let uds=parseInt(gv('eo-uds-'+id))||0;if(uds<=0)return;
+    const lineas=elLineas('eo-'+id);const uds=lineas.reduce((s,l)=>s+l.uds,0);if(uds<=0)return;
     const pen=pedPendiente(p);if(pen<=0)return;
-    if(uds>pen)uds=pen;
-    if(!p.entregas)p.entregas=[];
-    p.entregas.push({fecha,uds,obs,ts:nowISO()});recomputeEstadoPed(p);touch(p);
-    n++;totU+=uds;
+    if(uds>pen)overs.push(`${p.prod}: ${fmt(uds)} u entregadas / ${fmt(pen)} u pendientes (+${fmt(uds-pen)})`);
+    plan.push({p,uds,lineas});
   });
-  if(!n)return toast('No cargaste unidades en ningún producto','warn');
+  if(!plan.length)return toast('No cargaste pallets ni cajas en ningún producto','warn');
+  if(overs.length&&!confirm('Hay productos con entrega mayor al pendiente:\n'+overs.join('\n')+'\n¿Registrar igual?'))return;
+  plan.forEach(({p,uds,lineas})=>{if(!p.entregas)p.entregas=[];p.entregas.push({fecha,uds,lineas,obs,ts:nowISO()});recomputeEstadoPed(p);touch(p);n++;totU+=uds;});
   closeModal('modal-ent-orden');renderPedidos();
   const ok=await saveToCloud();if(ok)toast(`Entrega registrada · ${n} producto(s) · ${fmt(totU)} u`);
 }
