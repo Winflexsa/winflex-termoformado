@@ -456,6 +456,7 @@ tr.cli-row.open{background:var(--surf2)}
       <div class="nav-item" data-pg="pedidos" onclick="goTo('pedidos')"><span class="ic">📋</span>Pedidos</div>
       <div class="nav-item" data-pg="clientes" onclick="goTo('clientes')"><span class="ic">👥</span>Clientes</div>
       <div class="nav-sec">Config</div>
+      <div class="nav-item" data-pg="objetivos" onclick="goTo('objetivos')"><span class="ic">🎯</span>Objetivos</div>
       <div class="nav-item" data-pg="datos" onclick="goTo('datos')"><span class="ic">⚙️</span>Datos</div>
     </div>
     <div class="sb-foot"><div class="sb-date" id="sb-date">—</div><div class="sb-sync"><div class="sync-dot" id="sync-dot"></div><span id="sync-txt">—</span></div></div>
@@ -614,6 +615,20 @@ tr.cli-row.open{background:var(--surf2)}
     </div>
 
     <!-- DATOS -->
+    <div class="page" id="pg-objetivos">
+      <div class="page-head"><div><div class="page-title">Objetivos de eficiencia</div><div class="page-sub">Unidades esperadas por producto según el rango de golpes/min. Se usan en el panel y en la tablet.</div></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-outline" onclick="objReset()">↺ Teórico (bocas × golpes)</button><button class="btn btn-green" onclick="objGuardar()">💾 Guardar en la nube</button></div></div>
+      <div class="card">
+        <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-bottom:12px;font-size:13px;color:var(--text2)">
+          <span><b>Objetivo del turno</b> = unidades del rango elegido (12 h) × horas del turno ÷ 12 × factor</span>
+          <span>Factor de rendimiento: <input type="number" id="obj-factor" step="0.01" min="0.1" max="1" style="width:70px;font-family:'DM Mono';padding:6px 8px;border:1px solid var(--border2);border-radius:8px" onchange="objFactorChange()"></span>
+          <span>Horas: M1 9 h · M2 12 h · N 12 h</span>
+          <span id="obj-mod" style="color:var(--text3)"></span>
+        </div>
+        <div class="tbl-wrap"><table><thead><tr><th>Producto</th><th>Bocas</th><th>17 golpes/min<br><small>u / 12 h</small></th><th>20 golpes/min<br><small>u / 12 h</small></th><th>22 golpes/min<br><small>u / 12 h</small></th><th>Rango de trabajo</th><th>Objetivo M1<br><small>9 h × factor</small></th><th>Objetivo M2 / N<br><small>12 h × factor</small></th></tr></thead><tbody id="obj-tbody"></tbody></table></div>
+        <div class="card-note" style="margin-top:10px">Tocá un rango para que ese producto trabaje con esa velocidad. Los valores de la tabla se pueden editar a mano si un producto rinde distinto. Nada se aplica hasta tocar <b>Guardar en la nube</b>.</div>
+      </div>
+    </div>
     <div class="page" id="pg-datos">
       <div class="page-head"><div><div class="page-title">Datos</div><div class="page-sub">Sincronización y exportación</div></div></div>
       <div class="grid2">
@@ -814,14 +829,19 @@ function cajaValida(p,u){return !!(CAT[p]&&CAT[p].cajas.includes(+u));}
 const nowISO=()=>new Date().toISOString();
 function touch(x){if(x)x.mod=nowISO();return x;}
 const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-function objetivoTurno(prod,turno){const c=CAT[prod];if(!c||!turno||!HORAS[turno])return 0;return Math.round(c.bocas*c.golpes*60*HORAS[turno]*FACTOR);}
+// ── Objetivos de eficiencia (tabla editable en ⚙️ Objetivos, compartida con la tablet por la nube) ──
+const GOLPES_OPC=[17,20,22];
+function objetivosDefault(){const p={};Object.keys(CAT).forEach(k=>{const u={};GOLPES_OPC.forEach(g=>u[g]=CAT[k].bocas*g*60*12);p[k]={golpes:20,u};});return {factor:FACTOR,prods:p,mod:''};}
+function objCfg(){if(!DB.objetivos||!DB.objetivos.prods)DB.objetivos=objetivosDefault();const d=objetivosDefault();Object.keys(d.prods).forEach(k=>{if(!DB.objetivos.prods[k])DB.objetivos.prods[k]=d.prods[k];});if(DB.objetivos.factor==null)DB.objetivos.factor=FACTOR;return DB.objetivos;}
+function objetivoTurno(prod,turno){const c=CAT[prod];if(!c||!turno||!HORAS[turno])return 0;const o=objCfg(),p=o.prods[prod];const u=p&&p.u&&+p.u[p.golpes];if(u>0)return Math.round(u*HORAS[turno]/12*o.factor);return Math.round(c.bocas*c.golpes*60*HORAS[turno]*o.factor);}
+function mergeObjetivos(a,b){if(!a||!a.prods)return b&&b.prods?b:null;if(!b||!b.prods)return a;return ((a.mod||'')>=(b.mod||''))?a:b;}
 const famColor=f=>f==='Ensaladera'?'var(--en)':'var(--cl)';
 
 const CLIENTES=['Apici','Arandalia','Arandeira','Berries del Sol','Alif Agro','Berries Mesopotamicos','Blueberries','Bulca','Cantallops Diego','Degeneve','Dufayard','Early Crop','Esteros Azules','Expofresh','Extraberries','Finca Don Armando','Fincris Agro','Mr Berry','Pannunzio','Southern Fruits','Starberry','Tierra de Arandanos','Wonderful Berries','Molinos Rio de la Plata','Don Yeyo','La Italiana','Gualtieri','Bligraf','Blibox','Huertas del Pilar','El Artesano','Mendia','Colgate','Green Pack','Archilli'];
 const USERS={'1205':{n:'Matías',r:'Administrador'},'3080':{n:'Jonathan',r:'Ingeniería'},'0035':{n:'Agustín',r:'Planta'},'0104':{n:'Mirta',r:'Administración'},'9090':{n:'Admin',r:'Administrador'}};
 
 // ════════ ESTADO ════════
-let DB={bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},ajustes:[],clientes:[],cronograma:[],operarios:[],bobinasBorradas:[],pedidosBorrados:[],ajustesBorrados:[],cronogramaBorrados:[],clientesBorrados:[]};
+let DB={objetivos:null,bobinas:[],pallets:[],cierres:[],pedidos:[],stockConfig:{},ajustes:[],clientes:[],cronograma:[],operarios:[],bobinasBorradas:[],pedidosBorrados:[],ajustesBorrados:[],cronogramaBorrados:[],clientesBorrados:[]};
 let LOAD_OK=false; // true solo si loadFromCloud leyó bien la nube; bloquea saveToCloud si la carga falló
 const DEFAULT_MASTER_KEY='$2a$10$8p4t41BnTv.9Ls.4kFLhouDMqJGQEd5LQlBYEz8n1y6nH/3dFq27G';
 const DEFAULT_BIN_ID='6a243e42da38895dfe915231';
@@ -841,6 +861,7 @@ function mergeAdmin(latest){
     pedidos:mergeById(DB.pedidos,latest.pedidos).filter(p=>!ptIds.has(p.id)),pedidosBorrados:pt,
     ajustes:mergeById(DB.ajustes,latest.ajustes).filter(a=>!atIds.has(a.id)),ajustesBorrados:at,
     stockConfig:mergeStockCfg(DB.stockConfig,latest.stockConfig),
+    objetivos:mergeObjetivos(DB.objetivos,latest.objetivos)||objetivosDefault(),
     clientes:mergeById(DB.clientes,latest.clientes).filter(c=>!ctIds.has(c.id)),clientesBorrados:ct,
     cronograma:mergeById(DB.cronograma,latest.cronograma).filter(c=>!crIds.has(c.id)),cronogramaBorrados:cr
   };
@@ -877,7 +898,7 @@ async function loadFromCloud(force){
     if(_pend.length){DB.bobinas=DB.bobinas.concat(_pend);prodDirty=true;}
     DB.pallets=r.pallets||[];DB.cierres=r.cierres||[];DB.operarios=r.operarios||[];
     if(merge){const m=mergeAdmin(r);Object.assign(DB,m);}
-    else{DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};DB.ajustes=r.ajustes||[];DB.clientes=(r.clientes&&r.clientes.length)?r.clientes:seedClientes();DB.cronograma=r.cronograma||[];DB.pedidosBorrados=r.pedidosBorrados||[];DB.ajustesBorrados=r.ajustesBorrados||[];DB.clientesBorrados=r.clientesBorrados||[];DB.cronogramaBorrados=r.cronogramaBorrados||[];dirty=false;}
+    else{DB.pedidos=r.pedidos||[];DB.stockConfig=r.stockConfig||{};DB.objetivos=(r.objetivos&&r.objetivos.prods)?r.objetivos:objetivosDefault();DB.ajustes=r.ajustes||[];DB.clientes=(r.clientes&&r.clientes.length)?r.clientes:seedClientes();DB.cronograma=r.cronograma||[];DB.pedidosBorrados=r.pedidosBorrados||[];DB.ajustesBorrados=r.ajustesBorrados||[];DB.clientesBorrados=r.clientesBorrados||[];DB.cronogramaBorrados=r.cronogramaBorrados||[];dirty=false;}
     setSync('ok',merge?'Mezclado (hay cambios locales sin subir)':'Sincronizado');refreshClienteDatalist();renderAll();
   }catch(e){LOAD_OK=false;setSync('err','Sin conexión — guardado bloqueado, recargá');const l=localStorage.getItem('wf_termo_local');if(l){const d=JSON.parse(l);Object.assign(DB,d);renderAll();}}
 }
@@ -893,7 +914,7 @@ async function getLatest(){
 async function saveToCloud(){
   if(!LOAD_OK){setSync('err','Guardado bloqueado: la carga falló. Recargá.');toast('⚠ No se guardó: la carga inicial no se completó. Recargá la página antes de operar.','warn');return false;}
   setSync('loading','Guardando...');
-  localStorage.setItem('wf_termo_local',JSON.stringify({bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,ajustes:DB.ajustes,clientes:DB.clientes,cronograma:DB.cronograma,operarios:DB.operarios,bobinasBorradas:DB.bobinasBorradas,pedidosBorrados:DB.pedidosBorrados,ajustesBorrados:DB.ajustesBorrados,clientesBorrados:DB.clientesBorrados,cronogramaBorrados:DB.cronogramaBorrados}));
+  localStorage.setItem('wf_termo_local',JSON.stringify({objetivos:DB.objetivos,bobinas:DB.bobinas,pallets:DB.pallets,cierres:DB.cierres,pedidos:DB.pedidos,stockConfig:DB.stockConfig,ajustes:DB.ajustes,clientes:DB.clientes,cronograma:DB.cronograma,operarios:DB.operarios,bobinasBorradas:DB.bobinasBorradas,pedidosBorrados:DB.pedidosBorrados,ajustesBorrados:DB.ajustesBorrados,clientesBorrados:DB.clientesBorrados,cronogramaBorrados:DB.cronogramaBorrados}));
   dirty=true;
   if(!CFG.apiKey||!CFG.binId){setSync('err','Sin bin configurado');toast('Configurá la sincronización primero','warn');return false;}
   const armar=(latest)=>{
@@ -931,7 +952,7 @@ async function saveToCloud(){
       if(faltan.length||nuevosDeOtro.length){payload=armar(check);await put(payload);}
     }catch(_){}
     DB.bobinas=payload.bobinas;DB.pallets=payload.pallets;DB.cierres=payload.cierres;DB.operarios=payload.operarios;
-    DB.pedidos=payload.pedidos;DB.ajustes=payload.ajustes;DB.stockConfig=payload.stockConfig;DB.clientes=payload.clientes;DB.cronograma=payload.cronograma;DB.pedidosBorrados=payload.pedidosBorrados;DB.ajustesBorrados=payload.ajustesBorrados;DB.clientesBorrados=payload.clientesBorrados;DB.cronogramaBorrados=payload.cronogramaBorrados;
+    DB.pedidos=payload.pedidos;DB.ajustes=payload.ajustes;DB.stockConfig=payload.stockConfig;DB.objetivos=payload.objetivos||DB.objetivos;DB.clientes=payload.clientes;DB.cronograma=payload.cronograma;DB.pedidosBorrados=payload.pedidosBorrados;DB.ajustesBorrados=payload.ajustesBorrados;DB.clientesBorrados=payload.clientesBorrados;DB.cronogramaBorrados=payload.cronogramaBorrados;
     const okIds=new Set(payload.bobinas.map(b=>b.id));pendSet(pendGet().filter(b=>!okIds.has(b.id)));
     prodDirty=false;bobinasDeleted.clear();dirty=false;setSync('ok','Guardado');renderAll();return true;
   }catch(e){setSync('err','SIN GUARDAR en nube');toast('No se pudo guardar en la nube ('+e.message+'). NO se pisó nada en la nube. Quedó en este equipo — reintentá con ↻ Actualizar o revisá la conexión.','err');renderAll();return false;}
@@ -965,7 +986,7 @@ function init(){
 const MODULOS={
   dashboard:'📊 Dashboard del área', produccion:'🏭 Producción', registro:'➕ Registrar prod.',
   cronograma:'🗓️ Cronograma', anual:'📅 Resumen anual', graficos:'📈 Gráficos',
-  stock:'🗃️ Stock y pallets', pedidos:'📋 Pedidos', clientes:'👥 Clientes', datos:'⚙️ Datos'
+  stock:'🗃️ Stock y pallets', pedidos:'📋 Pedidos', clientes:'👥 Clientes', objetivos:'🎯 Objetivos', datos:'⚙️ Datos'
 };
 const _paramPg=(function(){try{return new URLSearchParams(location.search).get('pg');}catch(_){return null;}})();
 const MODULO_VENTANA=(_paramPg&&MODULOS[_paramPg])?_paramPg:null;
@@ -1151,7 +1172,7 @@ function eficProm(p){const g={};DB.bobinas.filter(b=>b.prod===p).forEach(b=>{con
 function turnosProd(p){const s=new Set();DB.bobinas.filter(b=>b.prod===p).forEach(b=>s.add(b.fecha+'|'+b.turno));return s.size;}
 
 // ════════ RENDER ════════
-function renderAll(){renderDashboard();renderProduccion();renderStock();renderPallets();renderPedidos();renderDatos();renderRegistro();renderAnual();renderClientes();renderCronograma();if(document.getElementById('pg-graficos').classList.contains('active'))renderGraficos();}
+function renderAll(){renderObjetivos();renderDashboard();renderProduccion();renderStock();renderPallets();renderPedidos();renderDatos();renderRegistro();renderAnual();renderClientes();renderCronograma();if(document.getElementById('pg-graficos').classList.contains('active'))renderGraficos();}
 
 function renderDashboard(){
   const prods=PRODS.filter(famOk);
@@ -1248,6 +1269,21 @@ function renderProduccion(){
   document.getElementById('prod-dias').innerHTML=fechas.length?fechas.map(f=>{const x=byD[f];const dd=new Date(f+'T00:00');const lbl=dd.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});return `<tr class="clickable dayrow" onclick="toggleDia(this)"><td><span class="chev">▸</span><b>${lbl}</b></td><td style="white-space:normal">${[...x.turnos].sort((a,b)=>(TORD[a]??9)-(TORD[b]??9)).map(t=>{const e=(x.eficT||{})[t];return `<span class="turno-cell"><span class="turno-pill">${t}</span>${e!=null?`<span class="te" style="color:${eColor(e)}">${e}%</span>`:''}</span>`;}).join('')}</td><td style="font-size:12px;color:var(--text2);white-space:normal">${[...x.prods].join(', ')}</td><td class="mono">${fmt(x.cajas)}</td><td class="mono">${fmt(x.uds)}</td><td class="mono">${fmt(x.kg)}</td><td>${x.efic!==null?eTag(x.efic):'—'}</td><td style="white-space:normal">${cierreCell(f,[...x.turnos].sort((a,b)=>(TORD[a]??9)-(TORD[b]??9)))}</td></tr><tr class="day-detail" style="display:none"><td colspan="8">${detTbl(f)}</td></tr>`;}).join(''):'<tr><td colspan="8" class="empty">Sin producción para el filtro</td></tr>';
 }
 const CIERRE_MAIL_DESDE='2026-09-17'; // el control de cierre/mail arranca este día; lo anterior no se muestra
+function renderObjetivos(){
+  const el=document.getElementById('obj-tbody');if(!el)return;const o=objCfg();
+  const fe=document.getElementById('obj-factor');if(fe&&document.activeElement!==fe)fe.value=o.factor;
+  document.getElementById('obj-mod').textContent=o.mod?'Última modificación: '+new Date(o.mod).toLocaleString('es-AR'):'';
+  el.innerHTML=Object.keys(CAT).map(k=>{const p=o.prods[k];const inp=g=>`<input type="number" value="${p.u[g]||''}" style="width:90px;font-family:'DM Mono';padding:6px 8px;border:1px solid var(--border2);border-radius:8px;text-align:right${p.golpes==g?';background:var(--green-l);border-color:var(--green);font-weight:700':''}" onchange="objSetU('${k}',${g},this.value)">`;
+    const rng=GOLPES_OPC.map(g=>`<button class="btn btn-sm ${p.golpes==g?'btn-green':'btn-outline'}" style="min-width:44px" onclick="objSetGolpes('${k}',${g})">${g}</button>`).join(' ');
+    return `<tr><td><b>${k}</b> <span style="color:var(--text3);font-size:11px">${CAT[k].fam}</span></td><td class="mono">${CAT[k].bocas}</td><td>${inp(17)}</td><td>${inp(20)}</td><td>${inp(22)}</td><td style="white-space:nowrap">${rng}</td><td class="mono"><b>${fmt(objetivoTurno(k,'M1'))}</b></td><td class="mono"><b>${fmt(objetivoTurno(k,'M2'))}</b></td></tr>`;}).join('');
+}
+let objDirty=false;
+function objTouch(){objCfg().mod=new Date().toISOString();objDirty=true;renderObjetivos();}
+function objSetU(k,g,v){const o=objCfg();o.prods[k].u[g]=parseInt(v)||0;objTouch();}
+function objSetGolpes(k,g){objCfg().prods[k].golpes=g;objTouch();}
+function objFactorChange(){const v=parseFloat(document.getElementById('obj-factor').value);if(!(v>0&&v<=1))return toast('Factor inválido (0,1 a 1)','warn');objCfg().factor=v;objTouch();}
+function objReset(){if(!confirm('¿Volver a los valores teóricos (bocas × golpes × 60 × 12) para todos los productos? Se mantiene el rango elegido y el factor.'))return;const o=objCfg();Object.keys(CAT).forEach(k=>{GOLPES_OPC.forEach(g=>o.prods[k].u[g]=CAT[k].bocas*g*60*12);});objTouch();}
+async function objGuardar(){objCfg().mod=new Date().toISOString();const ok=await saveToCloud();if(ok!==false){objDirty=false;toast('Objetivos guardados. La tablet los toma en la próxima sincronización.');}}
 function cierreCell(f,turnos){
   if(f<CIERRE_MAIL_DESDE)return '<span style="color:var(--text3)">—</span>';
   return turnos.map(t=>{const c=DB.cierres.find(x=>x.fecha===f&&x.turno===t);
