@@ -491,7 +491,7 @@ tr.cli-row.open{background:var(--surf2)}
 
     <!-- PRODUCCIÓN -->
     <div class="page" id="pg-produccion">
-      <div class="page-head"><div><div class="page-title">Producción</div><div class="page-sub">Por día — tocá un día para ver el detalle de bobinas</div></div><div class="head-act"><div class="seg fam-seg-ctl"><button data-f="Todos" class="on" onclick="setFam('Todos')">Todos</button><button data-f="Clamshell" onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera" onclick="setFam('Ensaladera')">Ensaladera</button></div><button class="btn btn-xls btn-sm" onclick="exportExcel('produccion')">⬇ Excel</button></div></div>
+      <div class="page-head"><div><div class="page-title">Producción</div><div class="page-sub">Por día — tocá un día para ver el detalle de bobinas</div></div><div class="head-act"><div class="seg fam-seg-ctl"><button data-f="Todos" class="on" onclick="setFam('Todos')">Todos</button><button data-f="Clamshell" onclick="setFam('Clamshell')">Clamshell</button><button data-f="Ensaladera" onclick="setFam('Ensaladera')">Ensaladera</button></div><button class="btn btn-green btn-sm" onclick="openInforme()">🖨 Informe operarios</button><button class="btn btn-xls btn-sm" onclick="exportExcel('produccion')">⬇ Excel</button></div></div>
       <div class="filters">
         <select id="flt-mes" onchange="renderProduccion()"></select>
         <select id="flt-anio" onchange="renderProduccion()"></select>
@@ -648,6 +648,24 @@ tr.cli-row.open{background:var(--surf2)}
 </div>
 
 <!-- MODAL DÍA DETALLE -->
+<div class="modal-ov" id="modal-informe">
+  <div class="modal">
+    <h3>🖨 Informe para operarios</h3>
+    <div class="card-note" style="margin-bottom:14px">Hecho vs. objetivo por turno, en formato simple para mostrar en planta. Compara solo contra el mismo producto.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <label style="font-size:13px;color:var(--text2)">Desde<br><input type="date" id="inf-desde" style="width:100%;padding:8px;border:1px solid var(--border2);border-radius:8px;font-family:inherit"></label>
+      <label style="font-size:13px;color:var(--text2)">Hasta<br><input type="date" id="inf-hasta" style="width:100%;padding:8px;border:1px solid var(--border2);border-radius:8px;font-family:inherit"></label>
+    </div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:6px">Turnos</div>
+    <div style="display:flex;gap:16px;margin-bottom:14px;font-size:14px">
+      <label><input type="checkbox" id="inf-t-M1"> M1 · Mañana (07–16)</label>
+      <label><input type="checkbox" id="inf-t-M2"> M2 · Día (07–19)</label>
+      <label><input type="checkbox" id="inf-t-N" checked> N · Noche (19–07)</label>
+    </div>
+    <label style="font-size:13px;color:var(--text2)">Producto<br><select id="inf-prod" style="width:100%;padding:8px;border:1px solid var(--border2);border-radius:8px;font-family:inherit"></select></label>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-informe')">Cancelar</button><button class="btn btn-green" onclick="generarInforme()">Generar informe</button></div>
+  </div>
+</div>
 <div class="modal-ov" id="modal-dia">
   <div class="modal">
     <h3 id="dia-title">Detalle del día</h3>
@@ -1269,6 +1287,104 @@ function renderProduccion(){
   document.getElementById('prod-dias').innerHTML=fechas.length?fechas.map(f=>{const x=byD[f];const dd=new Date(f+'T00:00');const lbl=dd.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'});return `<tr class="clickable dayrow" onclick="toggleDia(this)"><td><span class="chev">▸</span><b>${lbl}</b></td><td style="white-space:normal">${[...x.turnos].sort((a,b)=>(TORD[a]??9)-(TORD[b]??9)).map(t=>{const e=(x.eficT||{})[t];return `<span class="turno-cell"><span class="turno-pill">${t}</span>${e!=null?`<span class="te" style="color:${eColor(e)}">${e}%</span>`:''}</span>`;}).join('')}</td><td style="font-size:12px;color:var(--text2);white-space:normal">${[...x.prods].join(', ')}</td><td class="mono">${fmt(x.cajas)}</td><td class="mono">${fmt(x.uds)}</td><td class="mono">${fmt(x.kg)}</td><td>${x.efic!==null?eTag(x.efic):'—'}</td><td style="white-space:normal">${cierreCell(f,[...x.turnos].sort((a,b)=>(TORD[a]??9)-(TORD[b]??9)))}</td></tr><tr class="day-detail" style="display:none"><td colspan="8">${detTbl(f)}</td></tr>`;}).join(''):'<tr><td colspan="8" class="empty">Sin producción para el filtro</td></tr>';
 }
 const CIERRE_MAIL_DESDE='2026-09-17'; // el control de cierre/mail arranca este día; lo anterior no se muestra
+// ═══════════ INFORME PARA OPERARIOS (hecho vs objetivo, "a prueba de boludos") ═══════════
+function openInforme(){
+  const hoy=new Date();const d7=new Date(hoy);d7.setDate(hoy.getDate()-6);
+  const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  sv('inf-desde',iso(d7));sv('inf-hasta',iso(hoy));
+  document.getElementById('inf-prod').innerHTML='<option value="">El que más se hizo en el período</option>'+Object.keys(CAT).map(p=>`<option value="${p}">${p}</option>`).join('');
+  document.getElementById('modal-informe').classList.add('show');
+}
+const INF_TNOM={M1:'TURNO MAÑANA',M2:'TURNO DÍA',N:'TURNO NOCHE'};
+const INF_TPRE={M1:'MAÑANA DEL',M2:'DÍA DEL',N:'NOCHE DEL'};
+function infMin(h){const m=/^(\d{1,2}):(\d{2})/.exec(h||'');return m?(+m[1])*60+(+m[2]):null;}
+function infHM(min){min=Math.round(min);const h=Math.floor(min/60),m=min%60;return h>0?`${h} h ${String(m).padStart(2,'0')} min`:`${m} min`;}
+function infFmtH(min){min=((min%1440)+1440)%1440;return String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0');}
+// minutos desde el inicio del turno (N cruza medianoche)
+function infRel(t,hora){const m=infMin(hora);if(m==null)return null;const ini=t==='N'?19*60:7*60;let r=m-ini;if(t==='N'&&r<0)r+=1440;return r;}
+function generarInforme(){
+  const desde=gv('inf-desde'),hasta=gv('inf-hasta');
+  const turnos=['M1','M2','N'].filter(t=>document.getElementById('inf-t-'+t).checked);
+  let prod=gv('inf-prod');
+  if(!desde||!hasta||desde>hasta)return toast('Revisá el período','warn');
+  if(!turnos.length)return toast('Elegí al menos un turno','warn');
+  let bobs=DB.bobinas.filter(b=>b.fecha>=desde&&b.fecha<=hasta&&turnos.includes(b.turno));
+  if(!bobs.length)return toast('No hay producción en ese período para esos turnos','warn');
+  if(!prod){const c={};bobs.forEach(b=>c[b.prod]=(c[b.prod]||0)+(b.uds||0));prod=Object.keys(c).sort((a,b)=>c[b]-c[a])[0];}
+  const pb=bobs.filter(b=>b.prod===prod);
+  if(!pb.length)return toast('No hay producción de '+prod+' en ese período','warn');
+  // claves fecha|turno con producción de ese producto
+  const keys=[...new Set(pb.map(b=>b.fecha+'|'+b.turno))].sort();
+  const TORD={M1:0,M2:1,N:2};keys.sort((a,b)=>{const [fa,ta]=a.split('|'),[fb,tb]=b.split('|');return fa===fb?TORD[ta]-TORD[tb]:fa.localeCompare(fb);});
+  const avgBob=pb.reduce((s,b)=>s+(b.uds||0),0)/pb.length;
+  const ops=new Set();
+  const cards=keys.map(k=>{
+    const [f,t]=k.split('|');const tb=pb.filter(b=>b.fecha===f&&b.turno===t);
+    const uds=tb.reduce((s,b)=>s+(b.uds||0),0),obj=objetivoTurno(prod,t),falt=Math.max(0,obj-uds),pct=obj?Math.round(uds/obj*100):0;
+    const c=DB.cierres.find(x=>x.fecha===f&&x.turno===t);if(c){(c.operarios||[]).forEach(o=>ops.add(o));if(c.encargado)ops.add(c.encargado);}
+    // ¿qué pasó?: huecos entre cargas mayores a 1,6× el ritmo esperado
+    const horas=HORAS[t]||12,espBobs=Math.max(1,Math.round(obj/avgBob)),ritmo=horas*60/espBobs,lim=ritmo*1.6;
+    const cargas=tb.map(b=>({rel:infRel(t,horaCarga(b)),h:horaCarga(b),b})).filter(x=>x.rel!=null).sort((a,b)=>a.rel-b.rel);
+    const notas=[];const ini=t==='N'?19*60:7*60;
+    if(cargas.length){
+      if(cargas[0].rel>lim)notas.push(`Primera bobina cargada a las ${cargas[0].h} (${infHM(cargas[0].rel)} de turno)`);
+      for(let i=1;i<cargas.length;i++){const gap=cargas[i].rel-cargas[i-1].rel;if(gap>lim)notas.push(`De ${cargas[i-1].h} a ${cargas[i].h} → 1 sola bobina (${infHM(gap)})`);}
+      const fuera=cargas.filter(x=>x.rel>horas*60+30);if(fuera.length)notas.push(`${fuera.length} bobina${fuera.length>1?'s':''} cargada${fuera.length>1?'s':''} fuera de turno (${fuera.map(x=>x.h).join(', ')})`);
+    }
+    const dd=new Date(f+'T00:00');const dia=dd.toLocaleDateString('es-AR',{weekday:'long'}).toUpperCase()+' '+dd.getDate();
+    return {f,t,uds,obj,falt,pct,dia,notas,nb:tb.length,ritmo};
+  });
+  const totU=cards.reduce((s,c)=>s+c.uds,0),totO=cards.reduce((s,c)=>s+c.obj,0),totF=Math.max(0,totO-totU);
+  const objRef=cards[0].obj;const turnosParados=totF/objRef;const rinden=totU/objRef;
+  const nT=cards.length;const boxes=[];for(let i=0;i<Math.min(nT,12);i++){const fill=Math.max(0,Math.min(1,rinden-i));boxes.push(fill);}
+  const titulo=turnos.length===1?INF_TNOM[turnos[0]]:'TURNOS '+turnos.map(t=>INF_TNOM[t].replace('TURNO ','')).join(' + ');
+  const fx=s=>{const d=new Date(s+'T00:00');return d.getDate()+' de '+d.toLocaleDateString('es-AR',{month:'long'});};
+  const periodo=desde===hasta?fx(desde):`Del ${fx(desde)} al ${fx(hasta)}`;
+  const bobTxt=`Una bobina sale en ${infHM(cards[0].ritmo)} → en ${HORAS[cards[0].t]} horas entran ${Math.max(1,Math.round(cards[0].obj/avgBob))} bobinas`;
+  const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe ${prod} ${desde} a ${hasta}</title>
+<style>
+body{margin:0;background:#e9ecef;font-family:Arial,Helvetica,sans-serif;color:#111}
+.bar-top{position:sticky;top:0;background:#fff;border-bottom:1px solid #ccc;padding:8px 14px;display:flex;gap:8px;align-items:center;z-index:5}
+.bar-top button{padding:8px 14px;border:none;border-radius:8px;font-weight:700;cursor:pointer;background:#1e2733;color:#fff}
+#rep{width:1300px;margin:16px auto;background:#fff}
+.hd{background:#1e2733;color:#fff;text-align:center;padding:34px 20px 30px}
+.hd h1{margin:0;font-size:54px;letter-spacing:1px}.hd .sub{color:#c9ced6;font-size:26px;margin-top:14px}.hd .ops{color:#ffd23f;font-size:30px;font-weight:800;margin-top:14px}
+.obj{text-align:center;padding:26px 0 10px}.obj b{font-size:32px}.obj div{color:#555;font-size:22px;margin-top:8px}
+.card{margin:22px 40px;border:2px solid #cfd4da;border-radius:14px;background:#f8f9fa;padding:16px 36px 28px}
+.card .h{display:flex;justify-content:space-between;align-items:center;font-size:30px;font-weight:800}.card .h .p{color:#c1121f}.card .h .p.ok{color:#1a8a3a}
+.bar{display:flex;height:56px;margin:16px 0 34px;border:2px solid #333;border-radius:4px;overflow:hidden;font-size:26px;font-weight:800}
+.bar .g{background:#1aa347;color:#fff;display:flex;align-items:center;justify-content:center;white-space:nowrap}.bar .r{background:#fdd;color:#7a1010;display:flex;align-items:center;justify-content:center;flex:1;white-space:nowrap}
+.q{display:flex;gap:60px;font-size:22px}.q .k{font-weight:800;min-width:150px}.q .v div{margin-bottom:6px;color:#333}.q .v .ok{color:#1a8a3a}
+.tot{margin:30px 40px;background:#c1121f;border-radius:16px;color:#fff;text-align:center;padding:26px 36px 36px}
+.tot .t1{font-size:24px;font-weight:800;letter-spacing:1px}.tot .t2{font-size:62px;font-weight:900;margin:10px 0}.tot .t3{font-size:24px}
+.tot .box{background:#fff;color:#111;border-radius:14px;margin-top:22px;padding:24px 20px 30px}.tot .box .b1{color:#c1121f;font-size:36px;font-weight:900}.tot .box .b2{color:#444;font-size:22px;margin:8px 0 34px}
+.turnos{display:flex;gap:30px;justify-content:center;flex-wrap:wrap}.tb{width:240px}.tb .sq{height:120px;border:3px solid #333;display:flex;position:relative;overflow:hidden}.tb .sq .g{background:#1aa347}.tb .sq .r{background:#e02424;flex:1}
+.tb .sq span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:20px;text-align:center;line-height:1.2;text-shadow:0 1px 3px rgba(0,0,0,.5)}.tb .lb{text-align:center;font-weight:800;font-size:22px;margin-top:8px}
+.ft{text-align:center;color:#888;font-size:18px;padding:20px}
+@media print{.bar-top{display:none}body{background:#fff}#rep{margin:0;width:auto}}
+</style></head><body>
+<div class="bar-top"><button onclick="descargar()">⬇ Descargar imagen (PNG)</button><button onclick="window.print()" style="background:#555">🖨 Imprimir / PDF</button><span style="color:#666;font-size:13px">Informe generado el ${new Date().toLocaleString('es-AR')} · ${prod} · ${keys.length} turno${keys.length>1?'s':''}</span></div>
+<div id="rep">
+<div class="hd"><h1>${titulo} · TERMOFORMADO</h1><div class="sub">${periodo} · Producto ${prod}</div>${ops.size?`<div class="ops">Operarios: ${[...ops].map(o=>o.toUpperCase()).join(' · ')}</div>`:''}</div>
+<div class="obj"><b>Objetivo por turno: ${fmt(objRef)} unidades</b><div>${bobTxt}</div></div>
+${cards.map(c=>`<div class="card"><div class="h"><span>${turnos.length>1?INF_TPRE[c.t]+' ':INF_TPRE[c.t]+' '}${c.dia}</span><span class="p ${c.pct>=100?'ok':''}">${c.pct}% del objetivo</span></div>
+<div class="bar"><div class="g" style="width:${Math.min(100,c.pct)}%">HIZO&nbsp; ${fmt(c.uds)}</div>${c.falt>0?`<div class="r">FALTARON&nbsp; ${fmt(c.falt)}</div>`:''}</div>
+<div class="q"><div class="k">¿Qué pasó?</div><div class="v">${c.notas.length?c.notas.map(n=>`<div>${n}</div>`).join(''):`<div class="ok">Ritmo parejo: ${c.nb} bobinas cargadas</div>`}</div></div></div>`).join('')}
+<div class="tot"><div class="t1">TOTAL DEL PERÍODO</div><div class="t2">${totF>0?`FALTARON ${fmt(totF)} UNIDADES`:'OBJETIVO CUMPLIDO'}</div><div class="t3">Se hicieron ${fmt(totU)} de ${fmt(totO)}</div>
+<div class="box"><div class="b1">${totF>0?`ES LO MISMO QUE ${turnosParados.toLocaleString('es-AR',{maximumFractionDigits:1})} TURNO${Math.round(turnosParados*10)===10?'':'S'} CON LA MÁQUINA PARADA`:'TODOS LOS TURNOS PRODUCIENDO'}</div><div class="b2">Se pagaron ${nT} turno${nT>1?'s':''} de ${HORAS[cards[0].t]} horas. Esto es lo que rindieron:</div>
+<div class="turnos">${boxes.map((fl,i)=>`<div class="tb"><div class="sq"><div class="g" style="width:${Math.round(fl*100)}%"></div><div class="r"></div><span>${fl>=0.999?'PRODUCIENDO':fl<=0.001?'MÁQUINA<br>PARADA':'MÁQUINA<br>PARADA'}</span></div><div class="lb">Turno ${i+1}</div></div>`).join('')}${nT>12?`<div style="width:100%;text-align:center;color:#555;font-size:18px;margin-top:10px">… y ${nT-12} turnos más</div>`:''}</div></div></div>
+<div class="ft">Fuente: cargas de la tablet de termoformado · Winflex S.A.</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
+<script>
+async function descargar(){if(!window.html2canvas)return alert('No se pudo cargar el generador de imagen. Usá Imprimir / PDF.');const cv=await html2canvas(document.getElementById('rep'),{scale:2,backgroundColor:'#ffffff'});const a=document.createElement('a');a.download='Informe_${prod}_${desde}_${hasta}.png';a.href=cv.toDataURL('image/png');a.click();}
+<\/script></body></html>`;
+  const w=window.open('','_blank');
+  if(!w){toast('El navegador bloqueó la ventana del informe. Permití ventanas emergentes.','warn');return;}
+  w.document.open();w.document.write(html);w.document.close();
+  closeModal('modal-informe');
+}
+
 function renderObjetivos(){
   const el=document.getElementById('obj-tbody');if(!el)return;const o=objCfg();
   const fe=document.getElementById('obj-factor');if(fe&&document.activeElement!==fe)fe.value=o.factor;
