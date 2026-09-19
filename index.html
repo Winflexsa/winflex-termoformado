@@ -12,6 +12,30 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Termoformado">
+<script>
+/* === MODO CELULAR: solo en telefonos (tactil + lado menor < 600px). Tablets y PC no cambian. === */
+(function(){try{
+  var p=new URLSearchParams(location.search).get('vista');
+  if(p==='celu'||p==='full')localStorage.setItem('wf_vista',p);
+  if(p==='auto')localStorage.removeItem('wf_vista');
+  var pref=localStorage.getItem('wf_vista');
+  var lado=Math.min(screen.width||9999,screen.height||9999);
+  var tactil=(navigator.maxTouchPoints>0)||(window.matchMedia&&matchMedia('(pointer:coarse)').matches);
+  var esTel=!!tactil&&lado<600;
+  window.WF_ES_TEL=esTel;
+  if(pref==='celu'||(esTel&&pref!=='full')){var de=document.documentElement;de.classList.add('celu');
+    /* si el navegador fuerza "sitio de escritorio" (ventana virtual ~980px) se agranda todo a tamano real */
+    var ajusta=function(){try{
+      var land=window.matchMedia&&matchMedia('(orientation:landscape)').matches;
+      var sw=land?Math.max(screen.width,screen.height):Math.min(screen.width,screen.height), iw=window.innerWidth||0;
+      var z=(sw&&iw>sw*1.2)?(iw/sw):1;
+      de.style.zoom=z>1?z:'';
+      if(z>1){de.style.setProperty('--wfh',Math.floor(window.innerHeight/z)+'px');de.classList.add('celu-zoom')}
+      else{de.style.removeProperty('--wfh');de.classList.remove('celu-zoom')}
+    }catch(e){}};
+    ajusta();window.addEventListener('resize',ajusta);window.addEventListener('orientationchange',function(){setTimeout(ajusta,250)});}
+}catch(e){}})();
+</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 :root{
@@ -420,6 +444,141 @@ tr.cli-row.open{background:var(--surf2)}
 .amesdet-tbl th.num{text-align:right}
 .amesdet-tbl td{padding:7px 10px;border-top:1px solid var(--border);font-size:13px}
 .amesdet-tbl td.num{text-align:right}
+
+/* ================= MODO CELULAR (todo bajo html.celu: no afecta tablet ni PC) ================= */
+#c-top,#c-nav,#c-sub{display:none}
+html.celu body{font-size:15px}
+html.celu input,html.celu select,html.celu textarea{font-size:16px!important}
+html.celu .shell{display:block}
+html.celu .sidebar{display:none!important}
+html.celu .main,html.celu body.modo-modulo .main{margin:0;max-width:none;padding:14px 14px calc(160px + env(safe-area-inset-bottom,0px))}
+/* barra superior */
+html.celu #c-top{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;background:var(--surf);border-bottom:3px solid var(--green);padding:10px 14px;box-shadow:0 2px 10px rgba(20,40,25,.07)}
+html.celu #c-top img{height:26px;width:auto}
+html.celu #c-top h1{font-size:17px;font-weight:700;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.celu #c-top .sb-sync{margin:0;font-size:11px;max-width:120px;white-space:nowrap;overflow:hidden;border:1px solid var(--border);border-radius:20px;padding:5px 9px}
+html.celu #c-top button{width:40px;height:40px;border-radius:12px;border:1px solid var(--border2);background:var(--surf);color:var(--green-d);font-size:17px;cursor:pointer}
+/* barra de modulos abajo */
+html.celu #c-nav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--surf);border-top:1px solid var(--border);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px rgba(20,40,25,.08)}
+html.celu #c-nav button{flex:1 1 0;min-width:0;border:0;background:none;font-family:inherit;font-size:10.5px;font-weight:600;color:var(--text3);display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 2px;cursor:pointer}
+html.celu #c-nav button span{font-size:21px;line-height:1.1;filter:grayscale(1);opacity:.6}
+html.celu #c-nav button.on{color:var(--green-d)}
+html.celu #c-nav button.on span{filter:none;opacity:1}
+/* hoja desde abajo */
+.sheet-ov{position:fixed;inset:0;background:rgba(15,25,18,.5);z-index:75;display:none;align-items:flex-end}
+.sheet-ov.open{display:flex}
+.sheet{width:100%;max-height:84%;overflow:auto;background:var(--surf);border-radius:20px 20px 0 0;padding:10px 14px calc(18px + env(safe-area-inset-bottom,0px));animation:shup .18s}
+@keyframes shup{from{transform:translateY(30px);opacity:0}}
+.sheet .grip{width:40px;height:4px;border-radius:2px;background:var(--border2);margin:2px auto 10px}
+.sheet h4{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:0;padding:10px 6px 4px}
+.sheet button{display:flex;align-items:center;gap:14px;width:100%;padding:14px 8px;font-family:inherit;font-size:16px;font-weight:600;color:var(--text);background:none;border:0;border-bottom:1px solid var(--border);text-align:left;cursor:pointer}
+.sheet button .ic{font-size:20px;width:26px;text-align:center}
+.sheet button.on{color:var(--green-d)}
+.sheet button.sal{color:var(--bad);border-bottom:0}
+/* cabecera de cada pantalla */
+html.celu .page-head{display:block;margin-bottom:14px}
+html.celu .page-title{display:none}
+html.celu .page-sub{font-size:13px;margin:0 0 12px}
+html.celu .head-act{gap:8px}
+html.celu .head-act .seg{display:flex;width:100%;padding:4px;border-radius:14px}
+html.celu .head-act .seg button{flex:1;padding:11px 4px;font-size:14px;border-radius:11px}
+html.celu .head-act>.btn,html.celu .page-head>div>.btn{flex:1 1 auto;justify-content:center;padding:11px 12px;font-size:13.5px;border-radius:12px}
+html.celu .head-act>.btn[onclick="loadFromCloud()"]{display:none}
+html.celu .head-act>select{flex:1;padding:11px;border-radius:12px;border:1px solid var(--border2);background:var(--surf)}
+html.celu .fab{position:fixed;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:35;padding:15px 22px!important;border-radius:30px!important;font-size:15.5px!important;box-shadow:0 8px 22px rgba(21,164,99,.45);flex:none!important}
+/* sub-pantallas del dashboard */
+html.celu #c-sub{display:flex;background:var(--surf3);border-radius:14px;padding:4px;margin-bottom:14px}
+html.celu #c-sub button{flex:1;padding:12px 8px;border-radius:11px;border:0;background:none;font-family:inherit;font-weight:700;font-size:15px;color:var(--text2);cursor:pointer}
+html.celu #c-sub button.on{background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(21,164,99,.35)}
+html.celu #pg-dashboard[data-sub=res] .sx-det,html.celu #pg-dashboard[data-sub=det] .sx-res{display:none!important}
+/* KPIs: uno grande + el resto chicos */
+html.celu .kpis{grid-template-columns:1fr 1fr!important;gap:10px;margin-bottom:16px}
+html.celu .kpi{padding:13px 14px;display:flex;flex-direction:column;min-width:0}
+html.celu .kpi .l{order:-1;margin:0 0 5px;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+html.celu .kpi .v{font-size:21px}
+html.celu .kpi .s{font-size:11px}
+html.celu .kpis>.kpi:first-child{grid-column:1/-1;background:linear-gradient(135deg,#1bb971,var(--green-d));border:0;padding:20px;box-shadow:0 8px 22px rgba(21,164,99,.30)}
+html.celu .kpis>.kpi:first-child .l{color:rgba(255,255,255,.88);font-size:12px}
+html.celu .kpis>.kpi:first-child .v{color:#fff!important;font-size:36px}
+html.celu .kpis>.kpi:first-child .v *{color:#fff!important}
+html.celu .kpis>.kpi:first-child .s{color:rgba(255,255,255,.8);font-size:12.5px;margin-top:5px}
+html.celu .kpis>.kpi:last-child:nth-child(even){grid-column:1/-1}
+html.celu .ent-kpis{gap:8px}
+html.celu .ent-kpi .v{font-size:18px}
+/* tarjetas y contenido */
+html.celu .grid2{grid-template-columns:1fr;gap:0}
+html.celu .card{padding:16px;border-radius:16px;margin-bottom:14px}
+html.celu .card-title{font-size:12.5px}
+html.celu .card-head{flex-wrap:wrap}
+html.celu .alert-strip{gap:8px}
+html.celu .alert-chip{flex:1 1 100%;padding:13px 15px;font-size:14.5px;border-radius:13px}
+html.celu .stk-row{flex-wrap:wrap;padding:11px 0;font-size:14.5px}
+html.celu .stk-row .stk-ep{min-width:0}
+html.celu .barrow .vl{width:auto;min-width:80px}
+html.celu .filters{gap:8px}
+html.celu .filters select,html.celu .filters input{flex:1 1 46%;min-width:0;padding:12px!important;border-radius:12px}
+html.celu .filters .ped-search{flex:1 0 100%!important}
+html.celu .btn{font-size:14px;padding:11px 15px;border-radius:12px}
+html.celu .btn-sm{font-size:13px;padding:10px 12px}
+html.celu .ped-next{padding:14px}
+html.celu .nx-row{font-size:14px;padding:9px 0;flex-wrap:wrap}
+html.celu .mini-head{padding:15px 16px}
+html.celu .turno-mini{font-size:13.5px;padding:8px 0}
+/* tablas principales -> tarjetas (las etiquetas las pone el JS en data-l) */
+html.celu .card:has(>.tbl-wrap>table.tc){padding:0!important;background:none;border:0;overflow:visible!important}
+html.celu .card:has(>.tbl-wrap>table.tc)>.card-title,html.celu .card:has(>.tbl-wrap>table.tc)>.card-note,html.celu .card:has(>.tbl-wrap>table.tc)>.card-head{padding:0 2px}
+html.celu .tbl-wrap:has(>table.tc){overflow:visible;border:0!important;border-radius:0}
+html.celu table.tc,html.celu table.tc>tbody{display:block;width:100%}
+html.celu table.tc>thead{display:none}
+html.celu table.tc>tbody>tr{display:grid;grid-template-columns:repeat(3,1fr);gap:9px 10px;padding:15px 16px;margin-bottom:10px;background:var(--surf);border:1px solid var(--border);border-radius:16px;box-shadow:0 2px 8px rgba(20,40,25,.05)}
+html.celu table.tc>tbody>tr.open{border-color:var(--green);margin-bottom:0;border-radius:16px 16px 0 0}
+html.celu table.tc>tbody>tr>td{display:block;padding:0;border:0;text-align:left!important;font-size:14.5px;white-space:normal!important;max-width:none!important;min-width:0;overflow:visible!important}
+html.celu table.tc>tbody>tr>td[data-l]::before{content:attr(data-l);display:block;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:2px}
+html.celu table.tc>tbody>tr>td.tit{grid-row:1;grid-column:1/3;font-size:16.5px;font-weight:700}
+html.celu table.tc>tbody>tr>td.tit::before,html.celu table.tc>tbody>tr>td.acc::before,html.celu table.tc>tbody>tr>td.chv::before{display:none}
+html.celu table.tc>tbody>tr>td.tit .sub{font-size:12.5px;margin-top:2px}
+html.celu table.tc>tbody>tr>td.der{grid-row:1;grid-column:3;text-align:right!important;font-size:17px;font-weight:700}
+html.celu table.tc>tbody>tr>td.full{grid-column:1/-1}
+html.celu table.tc>tbody>tr>td.chv{display:none}
+html.celu table.tc>tbody>tr>td.acc{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end;align-items:center}
+html.celu table.tc>tbody>tr>td.acc:empty{display:none}
+html.celu table.tc>tbody>tr>td.acc .linkact{font-size:19px;padding:8px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surf)}
+html.celu table.tc>tbody>tr>td[colspan]{grid-column:1/-1}
+html.celu table.tc>tbody>tr.det{padding:0;margin:0 0 10px;background:var(--surf2);border:1px solid var(--green);border-top:0;border-radius:0 0 16px 16px;box-shadow:none;overflow:hidden}
+html.celu table.tc>tbody>tr.det:not([style*="none"]){display:block!important}
+html.celu table.tc>tbody>tr.det>td{background:none!important}
+html.celu table.tc .chev,html.celu table.tc .chev-sp{display:none}
+html.celu table.tc>tbody>tr.clickable>td.tit::after,html.celu table.tc>tbody>tr.amesrow>td.tit::after{content:' \203A';color:var(--text3);font-weight:400}
+/* lo que va adentro de un detalle: tabla compacta con scroll lateral */
+html.celu .subwrap,html.celu .cli-det,html.celu .peddet-panel,html.celu .amesdet-panel{padding:12px;overflow-x:auto}
+html.celu .peddet-grid,html.celu .amesdet-stats{gap:12px 20px}
+html.celu .cli-prodtbl,html.celu .cli-ordtbl{min-width:0;width:100%}
+html.celu tr.det th,html.celu tr.det td{padding:9px 8px;font-size:12.5px}
+html.celu .ped-est{font-size:13px!important;padding:7px}
+/* tablas que se quedan como tabla (cronograma, objetivos): scroll lateral */
+html.celu .tbl-wrap{-webkit-overflow-scrolling:touch}
+/* modales a pantalla completa */
+html.celu .modal-ov{padding:0;align-items:stretch}
+html.celu .modal{max-width:none;max-height:none;height:100vh;height:100dvh;border-radius:0;padding:20px 16px 0}
+html.celu.celu-zoom .modal{height:var(--wfh)}
+html.celu .modal h3{font-size:19px;margin-bottom:16px;padding-bottom:12px;border-bottom:3px solid var(--green)}
+html.celu .modal-foot{position:sticky;bottom:0;background:var(--surf);padding:12px 0 calc(14px + env(safe-area-inset-bottom,0px));margin-top:14px;flex-wrap:wrap;z-index:2}
+html.celu .modal-foot .btn{flex:1 1 auto;justify-content:center;padding:14px 12px;font-size:15px}
+html.celu .modal .tbl-wrap{overflow-x:auto}
+html.celu .field label{font-size:13px}
+html.celu .field input,html.celu .field select,html.celu .field textarea{padding:13px 12px;border-radius:12px}
+html.celu .pditem-head{display:none}
+html.celu .pditem{grid-template-columns:1fr 1fr 40px;gap:8px;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--surf2);margin-bottom:10px}
+html.celu .pditem .pdi-prod{grid-column:1}
+html.celu .pditem .pdi-caja{grid-column:2/4}
+html.celu .pditem .pdi-cajas{grid-column:1}
+html.celu .pditem .pdi-uds{grid-column:2}
+html.celu .pditem .pdi-del{grid-column:3;height:100%}
+html.celu .pditem select,html.celu .pditem input{padding:12px 10px}
+html.celu .el-row,html.celu .el-head{grid-template-columns:minmax(84px,1.2fr) 1fr 1fr minmax(58px,.8fr) 26px;gap:5px}
+html.celu .toast{left:14px;right:14px;bottom:calc(96px + env(safe-area-inset-bottom,0px));max-width:none;text-align:center}
+html.celu .login-card{padding:32px 22px}
+.vista-sw{display:block;margin:20px auto;padding:10px 16px;border-radius:10px;border:1px solid var(--border2);background:var(--surf);color:var(--text2);font-size:12.5px;font-weight:600;cursor:pointer}
 </style>
 </head>
 <body>
@@ -1018,6 +1177,7 @@ function activarInterno(pg){
 }
 function abrirModulo(pg){
   if(!MODULOS[pg])return;
+  if(document.documentElement.classList.contains('celu')){activarInterno(pg);try{window.scrollTo(0,0);}catch(_){ }return;}
   if(ES_HIJA&&pg===MODULO_VENTANA)return;
   try{
     const aw=(window.screen&&screen.availWidth)||1280,ah=(window.screen&&screen.availHeight)||800;
@@ -2501,6 +2661,90 @@ function intentarAutoUnlock(){
   init();
   return true;
 }
+
+/* ================= MODO CELULAR: comportamiento (solo corre si html.celu) ================= */
+function wfVista(v){try{localStorage.setItem('wf_vista',v);}catch(e){}const u=new URL(location.href);u.searchParams.delete('vista');location.replace(u.toString());}
+(function(){
+  const CELU=document.documentElement.classList.contains('celu');
+  if(!CELU){ if(window.WF_ES_TEL){const b=document.createElement('button');b.className='vista-sw';b.textContent='\uD83D\uDCF1 Ver versi\u00f3n celular';b.onclick=()=>wfVista('celu');document.body.appendChild(b);} return; }
+  const $=i=>document.getElementById(i), shell=$('shell'), main=document.querySelector('.main');
+  const NOM={dashboard:'Inicio',produccion:'Producci\u00f3n',registro:'Registrar producci\u00f3n',cronograma:'Cronograma',anual:'Resumen anual',graficos:'Gr\u00e1ficos',stock:'Stock y pallets',pedidos:'Pedidos',clientes:'Clientes',objetivos:'Objetivos',datos:'Datos'};
+  const ICO={registro:'\u2795',cronograma:'\uD83D\uDDD3\uFE0F',anual:'\uD83D\uDCC5',graficos:'\uD83D\uDCC8',clientes:'\uD83D\uDC65',objetivos:'\uD83C\uDFAF',datos:'\u2699\uFE0F'};
+  const BAJO=[['dashboard','\uD83D\uDCCA','Inicio'],['produccion','\uD83C\uDFED','Producci\u00f3n'],['stock','\uD83D\uDCE6','Stock'],['pedidos','\uD83D\uDCCB','Pedidos']];
+  /* barra superior */
+  const top=document.createElement('div');top.id='c-top';
+  const logo=document.querySelector('.sb-brand img');
+  top.innerHTML=`<img alt="Winflex" src="${logo?logo.src:''}"><h1 id="c-tit">Inicio</h1>`;
+  const sy=document.querySelector('.sb-sync'); if(sy) top.appendChild(sy);
+  const br=document.createElement('button');br.innerHTML='\u21BB';br.title='Actualizar';br.onclick=()=>loadFromCloud();top.appendChild(br);
+  shell.insertBefore(top,main);
+  /* barra inferior + menu Mas */
+  const nav=document.createElement('div');nav.id='c-nav';
+  nav.innerHTML=BAJO.map(([k,i,t])=>`<button data-pg="${k}"><span>${i}</span>${t}</button>`).join('')+`<button data-pg="__mas"><span>\u2630</span>M\u00e1s</button>`;
+  shell.appendChild(nav);
+  const ov=document.createElement('div');ov.className='sheet-ov';ov.innerHTML='<div class="sheet" id="c-sheet"></div>';document.body.appendChild(ov);
+  const sh=ov.firstChild; let ACT='dashboard';
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('open');});
+  nav.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    if(b.dataset.pg==='__mas'){
+      sh.innerHTML='<div class="grip"></div><h4>M\u00e1s pantallas</h4>'
+        +Object.keys(ICO).map(k=>`<button data-pg="${k}" class="${k===ACT?'on':''}"><span class="ic">${ICO[k]}</span>${NOM[k]}</button>`).join('')
+        +`<h4>${(typeof curUser!=='undefined'&&curUser)?curUser.n:''}</h4>`
+        +`<button data-a="sync"><span class="ic">\uD83D\uDD04</span>Actualizar datos</button>`
+        +`<button data-a="full"><span class="ic">\uD83D\uDDA5</span>Ver versi\u00f3n completa</button>`
+        +`<button data-a="salir" class="sal"><span class="ic">\uD83D\uDEAA</span>Salir</button>`;
+      ov.classList.add('open');return;}
+    abrirModulo(b.dataset.pg);});
+  sh.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;ov.classList.remove('open');
+    if(b.dataset.pg)abrirModulo(b.dataset.pg);else if(b.dataset.a==='sync')loadFromCloud();else if(b.dataset.a==='full')wfVista('full');else if(b.dataset.a==='salir')logout();});
+  const marcar=pg=>{ACT=pg;$('c-tit').textContent=NOM[pg]||'Termoformado';
+    const enBajo=BAJO.some(x=>x[0]===pg);
+    nav.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.pg===pg||(!enBajo&&b.dataset.pg==='__mas')));};
+  const _ai=activarInterno; activarInterno=function(pg){_ai.apply(this,arguments);if(MODULOS[pg])marcar(pg);}; marcar('dashboard');
+  /* botones flotantes */
+  document.querySelectorAll('.head-act>button[onclick="openPedido()"],.head-act>button[onclick="openCliente()"]').forEach(b=>b.classList.add('fab'));
+  /* dashboard en dos pantallas */
+  const dash=$('pg-dashboard');
+  if(dash){
+    const sub=document.createElement('div');sub.id='c-sub';sub.innerHTML='<button data-s="res">Resumen</button><button data-s="det">Producci\u00f3n</button>';
+    const ph=dash.querySelector('.page-head');ph.parentNode.insertBefore(sub,ph.nextSibling);
+    const tag=(el,c)=>{if(el)el.classList.add(c);};
+    tag($('dash-alertas'),'sx-res');tag($('dash-kpis'),'sx-res');tag(dash.querySelector('.dash-com'),'sx-res');tag($('turnos-mini'),'sx-det');
+    const cardDe=id=>{const e=$(id);return e?e.closest('.card'):null;};
+    tag(cardDe('dash-stock'),'sx-res');tag(cardDe('dash-mix'),'sx-det');tag(cardDe('dash-porprod'),'sx-det');tag(cardDe('dash-ultimas'),'sx-det');
+    const setSub=v=>{dash.dataset.sub=v;sub.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.s===v));};
+    sub.onclick=e=>{const b=e.target.closest('button');if(b){setSub(b.dataset.s);try{window.scrollTo(0,0);}catch(_){ }}};setSub('res');
+  }
+  /* tablas -> tarjetas: etiqueta cada celda con el titulo de su columna */
+  const DER={'prod-dias':'Unidades','ped-tbody':'Unidades','cli-tbody':'Pendiente','stock-tbody':'Disponible (u)','pal-tbody':'Unidades','anual-prod':'Total','anual-vend':'Total uds','dash-porprod':'Unidades','dash-ultimas':'Unidades'};
+  const FULL=['Productos','Turnos','Cierre / mail'];
+  function etiquetar(){
+    main.querySelectorAll('table').forEach(t=>{
+      if(t.parentElement.closest('table'))return;                       // tablas dentro de un detalle: quedan como tabla
+      if(t.classList.contains('crono-table')||t.closest('#pg-objetivos'))return;
+      const ths=[...t.querySelectorAll(':scope>thead th')].map(x=>x.textContent.replace(/\s+/g,' ').trim()); if(!ths.length)return;
+      t.classList.add('tc');
+      const tb=t.querySelector(':scope>tbody'); if(!tb)return; const der=DER[tb.id]||'';
+      [...tb.children].forEach(tr=>{ const tds=[...tr.children];
+        if(tds.length===1&&tds[0].colSpan>1){ if(!tds[0].classList.contains('empty'))tr.classList.add('det'); return; }
+        if(tds.length!==ths.length)return;
+        let tit=false;
+        tds.forEach((td,k)=>{ const l=ths[k]; if(td.dataset.l===l&&td.dataset.ok)return; td.dataset.l=l; td.dataset.ok='1';
+          if(!l&&k===0){td.classList.add('chv');return;}
+          if(!tit&&l){td.classList.add('tit');tit=true;return;}
+          if(l===der)td.classList.add('der'); else if(!l||l==='Acciones')td.classList.add('acc'); else if(FULL.includes(l)&&(tb.id==='prod-dias'||tb.id==='ped-tbody'))td.classList.add('full'); });
+        if(!tit){const f=tds.find(td=>td.classList.contains('tit'));if(!f&&tds[0])tds[0].classList.add('tit');}
+      });
+    });
+    document.querySelectorAll('.pdi-cajas').forEach(i=>{i.placeholder='Cajas';});
+    document.querySelectorAll('.pdi-uds').forEach(i=>{i.placeholder='Unidades';});
+  }
+  let _t=null; new MutationObserver(()=>{clearTimeout(_t);_t=setTimeout(etiquetar,30);}).observe(document.body,{childList:true,subtree:true});
+  etiquetar();
+  /* pedidos: marcar la fila abierta (usa display inline) */
+  document.addEventListener('click',()=>setTimeout(()=>{document.querySelectorAll('#ped-tbody>tr.pedsum,#anual-prod>tr.amesrow').forEach(r=>{const d=r.nextElementSibling;r.classList.toggle('open',!!(d&&d.classList.contains('det')&&d.style.display!=='none'));});},40));
+})();
+
 if(intentarAutoUnlock()){
   if(ES_HIJA){
     document.body.classList.add('modo-modulo');
