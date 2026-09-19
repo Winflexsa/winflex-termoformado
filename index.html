@@ -2745,6 +2745,9 @@ function wfVista(v){try{localStorage.setItem('wf_vista',v);}catch(e){}const u=ne
   document.addEventListener('click',()=>setTimeout(()=>{document.querySelectorAll('#ped-tbody>tr.pedsum,#anual-prod>tr.amesrow').forEach(r=>{const d=r.nextElementSibling;r.classList.toggle('open',!!(d&&d.classList.contains('det')&&d.style.display!=='none'));});},40));
 })();
 
+
+/* instalable como app */
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
 if(intentarAutoUnlock()){
   if(ES_HIJA){
     document.body.classList.add('modo-modulo');
