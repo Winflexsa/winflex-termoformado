@@ -444,6 +444,9 @@ details[open]>summary .bs-gp-ch{transform:rotate(180deg)}
 @media(max-width:640px){.ped-grid{grid-template-columns:1fr}}
 .ped-fsel{background:var(--surf);border:1px solid var(--border2);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;font-family:inherit;color:var(--text);cursor:pointer}
 .ped-fsel:focus{outline:none;border-color:var(--green)}
+.ped-estchips{display:flex;align-items:center;gap:4px;flex-wrap:wrap}.ped-estlbl{font-size:12px;color:var(--text2);margin-right:2px}
+.ped-estchips button{background:var(--surf);border:1px solid var(--border2);border-radius:999px;padding:6px 11px;font-size:12.5px;font-family:inherit;color:var(--text2);cursor:pointer}
+.ped-estchips button.on{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
 .pedsum{cursor:pointer}
 .pedsum:hover{background:var(--surf2)}
 .pedsum td{vertical-align:middle}
@@ -974,7 +977,7 @@ html.celu .login-card{padding:32px 22px}
       <div id="ped-next"></div>
       <div class="filters" style="align-items:center">
         <input class="ped-search" id="ped-q" placeholder="🔎 Buscar cliente…" oninput="renderPedidos()" style="min-width:170px;flex:0 1 200px">
-        <select class="ped-fsel" id="ped-fest" onchange="renderPedidos()"><option value="">Todos los estados</option><option>Pendiente</option><option>Parcial</option><option>Entregado</option><option>Cancelado</option></select>
+        <div class="ped-estchips" id="ped-fest" title="Podés marcar más de un estado"><span class="ped-estlbl">Estado:</span><button type="button" data-e="Pendiente" onclick="togPedFest(this)">Pendiente</button><button type="button" data-e="Parcial" onclick="togPedFest(this)">Parcial</button><button type="button" data-e="Entregado" onclick="togPedFest(this)">Entregado</button><button type="button" data-e="Cancelado" onclick="togPedFest(this)">Cancelado</button></div>
         <select class="ped-fsel" id="ped-fmes" onchange="renderPedidos()"><option value="">Todos los meses</option><option>Enero</option><option>Febrero</option><option>Marzo</option><option>Abril</option><option>Mayo</option><option>Junio</option><option>Julio</option><option>Agosto</option><option>Septiembre</option><option>Octubre</option><option>Noviembre</option><option>Diciembre</option></select>
         <select class="ped-fsel" id="ped-fprod" onchange="renderPedidos()"><option value="">Todos los productos</option><option>F40</option><option>F41</option><option>F43</option><option>F50</option><option>F61</option><option>F63</option><option>E900</option><option>T900</option><option>S900</option><option>E910</option></select>
         <select class="ped-fsel" id="ped-fvend" onchange="renderPedidos()"><option value="">Todos los vendedores</option></select>
@@ -2460,11 +2463,13 @@ function orderEstado(items){const act=items.filter(p=>p.estado!=='Cancelado');if
 function fillVendOpts(){const sel=document.getElementById('ped-fvend');if(!sel)return;const cur=sel.value;const vs=[...new Set(DB.pedidos.map(p=>p.vendedor).filter(Boolean))].sort();sel.innerHTML='<option value="">Todos los vendedores</option>'+vs.map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');}
 let _pedOrders=[]; let pedAbiertos=new Set();
 function togglePedDet(oi){const o=_pedOrders[oi];if(!o)return;const open=pedAbiertos.has(o.key);if(open)pedAbiertos.delete(o.key);else pedAbiertos.add(o.key);const r=document.getElementById('peddet-'+oi);if(r)r.style.display=open?'none':'table-row';const c=document.getElementById('peddet-'+oi+'-car');if(c)c.textContent=open?'▶':'▼';}
-function renderPedidos(){
+let pedFest=new Set();
+function togPedFest(b){const e=b.dataset.e;if(pedFest.has(e))pedFest.delete(e);else pedFest.add(e);b.classList.toggle('on',pedFest.has(e));renderPedidos();}
+// filtros de Pedidos (los usa la pantalla y el Excel, así bajás lo mismo que ves)
+function pedFiltrados(){
   const fam=DB.pedidos.slice();
   const q=(document.getElementById('ped-q')?.value||'').toLowerCase().trim();
-  const fest=document.getElementById('ped-fest')?.value||'',fmes=document.getElementById('ped-fmes')?.value||'',fprod=document.getElementById('ped-fprod')?.value||'',fvend=document.getElementById('ped-fvend')?.value||'';
-  fillVendOpts();
+  const fmes=document.getElementById('ped-fmes')?.value||'',fprod=document.getElementById('ped-fprod')?.value||'',fvend=document.getElementById('ped-fvend')?.value||'';
   const map=new Map();
   fam.forEach(p=>{const k=[normName(p.cliente),(p.vendedor||'').toLowerCase().trim(),p.fecha||'',p.entrega||'',(p.oc||'').toLowerCase().trim()].join('|');if(!map.has(k))map.set(k,{key:k,cliente:p.cliente,vendedor:p.vendedor,fecha:p.fecha,entrega:p.entrega,oc:p.oc,obs:p.obs,items:[]});const o=map.get(k);o.items.push(p);if(!o.obs&&p.obs)o.obs=p.obs;});
   let orders=[...map.values()];
@@ -2474,9 +2479,17 @@ function renderPedidos(){
     if(fvend&&(o.vendedor||'')!==fvend)return false;
     if(fmes&&mesNombre(o.fecha)!==fmes)return false;
     if(fprod&&!o.items.some(i=>i.prod===fprod))return false;
-    if(fest&&o.est!==fest)return false;
+    if(pedFest.size&&!pedFest.has(o.est))return false;
     return true;
   });
+  return orders;
+}
+function pedFiltroTxt(){const t=[];const g=id=>document.getElementById(id)?.value||'';
+  if(pedFest.size)t.push('Estado: '+[...pedFest].join(' + '));if(g('ped-fmes'))t.push('Mes: '+g('ped-fmes'));if(g('ped-fprod'))t.push('Producto: '+g('ped-fprod'));if(g('ped-fvend'))t.push('Vendedor: '+g('ped-fvend'));if(g('ped-q').trim())t.push('Cliente: "'+g('ped-q').trim()+'"');
+  return t.length?t.join(' · '):'Sin filtros (todos los pedidos)';}
+function renderPedidos(){
+  fillVendOpts();
+  let orders=pedFiltrados();
   const pend=orders.filter(o=>o.est==='Pendiente'||o.est==='Parcial'),ent=orders.filter(o=>o.est==='Entregado');
   const udsPend=pend.reduce((s,o)=>s+o.items.reduce((x,p)=>x+pedPendiente(p),0),0);
   const udsEnt=ent.reduce((s,o)=>s+o.items.reduce((x,p)=>x+pedEntregado(p),0),0);
@@ -2886,11 +2899,17 @@ async function exportExcel(kind){
         [{h:'N°',k:'n',w:9},{h:'Producto',k:'p',w:12},{h:'Familia',k:'f',w:13},{h:'Caja (u)',k:'ux',w:11,type:'num'},{h:'Cajas',k:'c',w:10,type:'num',total:true},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Pallets',k:'pal',w:10,type:'num',total:true,dec:true},{h:'Fecha',k:'fe',w:12},{h:'Origen',k:'o',w:12}],
         palRows);
     } else if(kind==='pedidos'){
-      const all=DB.pedidos.filter(p=>famOk(p.prod)).slice().sort((a,b)=>{const ap=(a.estado==='Pendiente'||a.estado==='Parcial')?0:1,bp=(b.estado==='Pendiente'||b.estado==='Parcial')?0:1;if(ap!==bp)return ap-bp;if(ap===0)return (a.entrega||'9999').localeCompare(b.entrega||'9999');return (b.fecha||'').localeCompare(a.fecha||'');});
+      const fprod=document.getElementById('ped-fprod')?.value||'';
+      const all=[];pedFiltrados().forEach(o=>o.items.forEach(p=>{if(fprod&&p.prod!==fprod)return;all.push(p);}));
+      all.sort((a,b)=>{const ap=(a.estado==='Pendiente'||a.estado==='Parcial')?0:1,bp=(b.estado==='Pendiente'||b.estado==='Parcial')?0:1;if(ap!==bp)return ap-bp;if(ap===0)return (a.entrega||'9999').localeCompare(b.entrega||'9999');return (b.fecha||'').localeCompare(a.fecha||'');});
+      if(!all.length){toast('No hay pedidos con ese filtro','warn');return;}
       const dias=p=>{if(!p.entrega||p.estado==='Entregado'||p.estado==='Cancelado')return '';const h=new Date();h.setHours(0,0,0,0);const d=new Date(p.entrega+'T00:00');if(isNaN(d))return '';return Math.round((d-h)/86400000);};
-      wfSheet(wb,'Pedidos','Pedidos',sub,
-        [{h:'Fecha',k:'f',w:12},{h:'Cliente',k:'cl',w:24},{h:'Producto',k:'p',w:11},{h:'Familia',k:'fa',w:12},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Estado',k:'e',w:13,type:'estado'},{h:'Entrega',k:'en',w:12},{h:'Días',k:'d',w:8,type:'num'},{h:'OC / Ref',k:'oc',w:14},{h:'Vendedor',k:'v',w:14},{h:'Observaciones',k:'o',w:30,wrap:true}],
-        all.map(p=>({f:p.fecha||'',cl:p.cliente||'',p:p.prod||'',fa:CAT[p.prod]?.fam||'',u:p.uds||0,e:p.estado||'Pendiente',en:p.entrega||'',d:dias(p),oc:p.oc||'',v:p.vendedor||'',o:p.obs||''})));
+      const r1=x=>Math.round(x*10)/10;
+      wfSheet(wb,'Pedidos','Pedidos',pedFiltroTxt()+'   ·   '+sub,
+        [{h:'Fecha',k:'f',w:12},{h:'Cliente',k:'cl',w:24},{h:'Producto',k:'p',w:11},{h:'Caja (u/caja)',k:'cx',w:13,type:'num'},{h:'Cajas',k:'cj',w:9,type:'num',total:true},{h:'Pallets',k:'pl',w:9,type:'num',dec:true,total:true},{h:'Unidades',k:'u',w:12,type:'num',total:true},{h:'Entregado',k:'ent',w:12,type:'num',total:true},{h:'Pendiente',k:'pen',w:12,type:'num',total:true},{h:'Cajas pend.',k:'cjp',w:11,type:'num',total:true},{h:'Estado',k:'e',w:13,type:'estado'},{h:'Entrega',k:'en',w:12},{h:'Días',k:'d',w:8,type:'num'},{h:'OC / Ref',k:'oc',w:14},{h:'Vendedor',k:'v',w:14},{h:'Entregas cargadas',k:'det',w:30,wrap:true},{h:'Observaciones',k:'o',w:30,wrap:true}],
+        all.map(p=>{const cx=p.caja||presFor(p.prod)||1,cj=Math.ceil((p.uds||0)/cx),cpp=cajasXPallet(p.prod,cx)||0,pen=pedPendiente(p);
+          const det=(p.entregas||[]).map(x=>{const ls=(x.lineas||x.items||[]);const l=ls.length?ls.map(y=>`${y.pal?y.pal+' pal ':''}${y.cajas?y.cajas+' cj ':''}x${y.uxp}`).join(' + '):fmt(x.uds||0)+' u';return (x.fecha?x.fecha.slice(5)+': ':'')+l;}).join(' | ');
+          return {f:p.fecha||'',cl:p.cliente||'',p:p.prod||'',cx,cj,pl:cpp?r1(cj/cpp):'',u:p.uds||0,ent:pedEntregado(p),pen,cjp:Math.ceil(pen/cx),e:p.estado||'Pendiente',en:p.entrega||'',d:dias(p),oc:p.oc||'',v:p.vendedor||'',det,o:p.obs||''};}));
     } else if(kind==='anual'){
       const y=gv('anual-anio')||new Date().getFullYear();
       const ab=DB.bobinas.filter(b=>famOk(b.prod)&&new Date(b.fecha+'T00:00').getFullYear()==y);
