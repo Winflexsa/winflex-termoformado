@@ -2,7 +2,7 @@
    Estrategia: la red manda. El cache es solo para poder abrir la app sin
    conexion. Asi nadie queda mirando una version vieja despues de un deploy. */
 
-const CACHE = 'termoformado-v1';
+const CACHE = 'termoformado-v2';
 const BASE = [
   "./",
   "./index.html",
@@ -33,6 +33,8 @@ self.addEventListener('fetch', e => {
 
   /* Nunca cachear la sincronizacion: los datos siempre van a la red. */
   if (url.hostname.indexOf('jsonbin.io') !== -1) return;
+  /* Envíos de Chivilcoy (GitHub): siempre a la red, sin guardar copias. */
+  if (url.hostname.indexOf('github') !== -1) return;
 
   /* La version de tablet no se toca: sigue yendo directo a la red como siempre. */
   if (url.pathname.endsWith('tablet.html')) return;
