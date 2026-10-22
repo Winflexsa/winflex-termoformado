@@ -2125,8 +2125,10 @@ async function chivSync(manual){
     const porId=new Map(DB.bobStock.map(x=>[x.id,x]));
     const porKey=new Set(DB.bobStock.map(x=>bsKey(x.partida,x.nbob)));
     const enFeed=new Set();const sinProd={};let nuevas=0,cambios=0;const res={};
+    const desde=(DB.chiv&&DB.chiv.desde)||'';
     feed.bobinas.forEach(b=>{
       const ped=feed.pedidos[b.ped];if(!ped||ped.clase!=='termo')return;
+      if(desde&&(b.fEnvio||'')<desde)return; // solo lo enviado desde que se conectó (lo anterior entró por Excel)
       const id='bs-chv-'+b.id;enFeed.add(id);
       const ya=porId.get(id);
       if(ya){if(ya.baja&&ya.baja.auto){delete ya.baja;touch(ya);cambios++;}return;}
@@ -2161,13 +2163,13 @@ function chivRender(){
   const hoy=bsFechaHoy();const hoyN=(DB.bobStock||[]).filter(x=>x.origen==='chivilcoy'&&(x.fechaEnvio||'')===hoy).length;
   const ult=chivEst.ult?new Date(chivEst.ult).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
   const prods=['',...PRODS];
-  el.innerHTML=`<div class="bs-chiv ${chivEst.err?'err':''}"><div><b>🚚 Ingreso automático desde Chivilcoy</b><span>${chivEst.leyendo?'Buscando envíos…':chivEst.err?'⚠ '+bsEsc(chivEst.err):(ult?'Revisado '+ult:'Esperando la primera lectura')+' · se revisa solo cada 5 min'}${hoyN?' · hoy entraron <b>'+hoyN+'</b>':''}</span></div><div class="bs-chiv-f"><button class="bs-x" onclick="chivSync(true)">Buscar ahora</button><button class="bs-x" title="Cambiar el código de Chivilcoy" onclick="chivCambiar()">⚙</button></div>
+  el.innerHTML=`<div class="bs-chiv ${chivEst.err?'err':''}"><div><b>🚚 Ingreso automático desde Chivilcoy</b><span>${chivEst.leyendo?'Buscando envíos…':chivEst.err?'⚠ '+bsEsc(chivEst.err):(ult?'Revisado '+ult:'Esperando la primera lectura')+' · se revisa solo cada 5 min'}${DB.chiv.desde?' · envíos desde el '+fdate(DB.chiv.desde):''}${hoyN?' · hoy entraron <b>'+hoyN+'</b>':''}</span></div><div class="bs-chiv-f"><button class="bs-x" onclick="chivSync(true)">Buscar ahora</button><button class="bs-x" title="Cambiar el código de Chivilcoy" onclick="chivCambiar()">⚙</button></div>
     ${chivEst.sinProd.length?`<div class="bs-chiv-sp">${chivEst.sinProd.map(s=>`<div><span>Pedido <b>${bsEsc(s.ped.cliente||'?')}</b>${s.ped.op?' · OP '+bsEsc(s.ped.op):''}${s.ped.producto?' · '+bsEsc(s.ped.producto):''} — ${s.n} bobinas (${fmt(s.kg)} kg) esperando: ¿qué producto es?</span><select onchange="chivAsignar('${bsEsc(s.ped.id)}',this.value)">${prods.map(p=>`<option value="${p}">${p||'— elegir —'}</option>`).join('')}</select></div>`).join('')}</div>`:''}</div>`;
 }
 async function chivGuardar(){const g=chivGid(gv('chiv-gid'));if(!g){toast('El código no es válido','warn');return;}
-  DB.chiv=Object.assign({},DB.chiv||{},{gistId:g,mod:nowISO(),por:curUser?curUser.n:''});const ok=await saveToCloud();if(ok){toast('Conectado con Chivilcoy');chivSync(true);}}
+  DB.chiv=Object.assign({},DB.chiv||{},{gistId:g,desde:(DB.chiv&&DB.chiv.desde)||bsFechaHoy(),mod:nowISO(),por:curUser?curUser.n:''});const ok=await saveToCloud();if(ok){toast('Conectado con Chivilcoy');chivSync(true);}}
 async function chivCambiar(){const g=prompt('Código de los envíos de Chivilcoy (Configuración → Envíos a Lanús en la app de Chivilcoy).\nDejalo vacío para desconectar.',(DB.chiv&&DB.chiv.gistId)||'');if(g===null)return;
-  DB.chiv=Object.assign({},DB.chiv||{},{gistId:chivGid(g),mod:nowISO()});const ok=await saveToCloud();if(ok){chivEst.err='';renderBobStock();if(DB.chiv.gistId)chivSync(true);}}
+  DB.chiv=Object.assign({},DB.chiv||{},{gistId:chivGid(g),desde:(DB.chiv&&DB.chiv.desde)||bsFechaHoy(),mod:nowISO()});const ok=await saveToCloud();if(ok){chivEst.err='';renderBobStock();if(DB.chiv.gistId)chivSync(true);}}
 async function chivAsignar(pid,prod){if(!prod)return;DB.chiv=Object.assign({},DB.chiv||{});DB.chiv.map=Object.assign({},DB.chiv.map||{},{[pid]:prod});DB.chiv.mod=nowISO();
   const ok=await saveToCloud();if(ok)chivSync(true);}
 setTimeout(()=>chivSync(false),8000);
