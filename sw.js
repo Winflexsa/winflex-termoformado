@@ -2,7 +2,7 @@
    Estrategia: la red manda. El cache es solo para poder abrir la app sin
    conexion. Asi nadie queda mirando una version vieja despues de un deploy. */
 
-const CACHE = 'termoformado-v2';
+const CACHE = 'termoformado-v3';
 const BASE = [
   "./",
   "./index.html",
