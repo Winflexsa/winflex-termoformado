@@ -2148,7 +2148,10 @@ async function chivSync(manual){
       if(desde&&(b.fEnvio||'')<desde)return; // solo lo enviado desde que se conectó (lo anterior entró por Excel)
       const id='bs-chv-'+b.id;enFeed.add(id);
       const ya=porId.get(id);
-      if(ya){if(ya.baja&&ya.baja.auto){delete ya.baja;touch(ya);cambios++;}return;}
+      if(ya){if(ya.baja&&ya.baja.auto){delete ya.baja;touch(ya);cambios++;}
+        // ingresada antes de que Chivilcoy mandara la hora del remito: si todavía está dentro de las 5 h, vuelve a "en camino"
+        if(!ya.llega&&b.tEnvio){const ll=bsLlega(b.tEnvio);if(ll>nowISO()){ya.llega=ll;ya.tEnvio=b.tEnvio;touch(ya);cambios++;}}
+        return;}
       if(tomb.has(id))return;
       const partida=bsUP(b.partida),nbob=String(b.nro||'').trim();
       if(!partida||!nbob||porKey.has(bsKey(partida,nbob)))return;
