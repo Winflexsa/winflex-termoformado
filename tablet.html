@@ -557,6 +557,7 @@ async function saveToCloud(isNew){
       const iT=mergeTombs(DB.informesBorrados,latest.informesBorrados);const iTIds=new Set(iT.map(t=>t.id));
       DB.informesBorrados=iT;payload.informesBorrados=iT;
       DB.informes=mergeById(DB.informes,latest.informes).filter(e=>!iTIds.has(e.id));payload.informes=DB.informes;
+      payload._w={app:'tablet v4.6',ts:new Date().toISOString()};
       return payload;
     };
     const put=async(payload)=>{
